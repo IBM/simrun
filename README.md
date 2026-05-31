@@ -1,8 +1,8 @@
-# simrun
+# SimRun
 
-simrun is an **Attack Simulation Platform (ASP)** for detection testing. It **detonates**
+SimRun is an **Attack Simulation Platform (ASP)** for detection testing. It **detonates**
 attack simulations and verifies that the security alerts you expect fire in your SIEM
-(Elastic Security, Datadog).
+(currently only Elastic Security is supported).
 
 It ships as a single Go binary serving a REST API + WebSocket interface backed by
 PostgreSQL, with an embedded SvelteKit frontend.
@@ -17,7 +17,7 @@ PostgreSQL, with an embedded SvelteKit frontend.
 ### Build
 
 ```bash
-mise run build   # builds the SvelteKit frontend and the simrun binary into dist/simrun
+mise build   # builds the SvelteKit frontend and the simrun binary into dist/simrun
 ```
 
 ### Run
@@ -32,8 +32,7 @@ export SR_DATABASE_URL="postgres://user:pass@localhost:5432/simrun?sslmode=disab
 The UI and API are then served on http://localhost:8080.
 
 > Authentication is optional. Without `SR_GOOGLE_CLIENT_ID`/`SR_GOOGLE_CLIENT_SECRET`,
-> login is disabled and the app runs unauthenticated — fine for local use, not for a
-> shared deployment.
+> login is disabled and the app runs unauthenticated
 
 ## Configuration
 
