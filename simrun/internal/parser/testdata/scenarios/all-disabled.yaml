@@ -1,0 +1,10 @@
+scenarios:
+  - name: skipped
+    enabled: false
+    detonate:
+      localDetonator:
+        commands: ["echo nope"]
+    expectations:
+      - timeout: 1m
+        datadogSecuritySignal:
+          name: "Test signal"

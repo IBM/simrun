@@ -1,0 +1,45 @@
+.idea
+dist/
+bin/
+
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+
+.vscode/
+
+# Node.js / Bun
+node_modules
+*.tgz
+
+# Logs
+logs
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Environment files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# Build caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# Web frontend
+web/frontend/node_modules/
+web/frontend/build/
+web/frontend/.svelte-kit/
+
+# Embedded frontend assets (populated at build time)
+simrun/internal/web/frontend/*
+!simrun/internal/web/frontend/.gitkeep
+
+_old_configs/

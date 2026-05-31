@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/log-line.schema.json",
+  "title": "Log Line",
+  "description": "Stderr JSON log line format",
+  "type": "object",
+  "required": ["level", "msg", "ts"],
+  "properties": {
+    "level": {
+      "type": "string",
+      "description": "Log level",
+      "enum": ["debug", "info", "warn", "error"]
+    },
+    "msg": {
+      "type": "string",
+      "description": "Log message"
+    },
+    "simulation": {
+      "type": "string",
+      "description": "Simulation ID being executed"
+    },
+    "execution_id": {
+      "type": "string",
+      "description": "Execution ID for correlation"
+    },
+    "pack": {
+      "type": "string",
+      "description": "Pack name"
+    },
+    "pack_version": {
+      "type": "string",
+      "description": "Pack version"
+    },
+    "ts": {
+      "type": "string",
+      "description": "ISO 8601 timestamp"
+    }
+  },
+  "additionalProperties": true
+}

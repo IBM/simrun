@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/cleanup-output.schema.json",
+  "title": "Cleanup Output",
+  "description": "Stdout output from ./pack cleanup command. Uses the same Result format as detonate output.",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Cleanup result status",
+      "enum": ["success", "error"]
+    },
+    "indicators": {
+      "type": "object",
+      "description": "Optional indicators from cleanup",
+      "additionalProperties": true
+    },
+    "error": {
+      "$ref": "error.schema.json"
+    }
+  },
+  "additionalProperties": false
+}

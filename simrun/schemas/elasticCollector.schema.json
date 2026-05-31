@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/elasticCollector.schema.json",
+  "title": "Elastic Collector",
+  "description": "Configuration for collecting logs from Elasticsearch",
+  "type": "object",
+  "required": ["index"],
+  "properties": {
+    "index": {
+      "type": "string",
+      "description": "The Elasticsearch index to search for logs"
+    },
+    "additionalFields": {
+      "type": "object",
+      "description": "Additional fields to search for. Keys are field names, values can be static strings or template expressions like '{{ indicators.terraformOutput.attacker_vm_public_ip }}'",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

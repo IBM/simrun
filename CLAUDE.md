@@ -72,7 +72,7 @@ ASP (Attack Simulation Platform) is a detection testing framework. It detonates 
 
 ## Build and Development Commands
 
-This project uses [mise](https://mise.jdx.dev/) for tool management (Go 1.25.8, mockery 3.5.5).
+This project uses [mise](https://mise.jdx.dev/) for tool management.
 
 ```bash
 # Build the simrun binary (frontend + server)

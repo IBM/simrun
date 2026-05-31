@@ -1,0 +1,12 @@
+scenarios:
+  - name: with collector
+    detonate:
+      localDetonator:
+        commands: ["echo collected"]
+    collect:
+      elasticCollector:
+        index: "logs-test"
+    expectations:
+      - timeout: 1m
+        datadogSecuritySignal:
+          name: "Test signal"

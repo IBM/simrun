@@ -1,0 +1,9 @@
+scenarios:
+  - name: aws cli detonator
+    detonate:
+      awsCliDetonator:
+        script: "aws sts get-caller-identity"
+    expectations:
+      - timeout: 1m
+        datadogSecuritySignal:
+          name: "AWS API call"

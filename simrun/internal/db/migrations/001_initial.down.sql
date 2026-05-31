@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS auth_sessions;
+DROP TABLE IF EXISTS connectors;
+DROP TABLE IF EXISTS schedules;
+DROP TABLE IF EXISTS secret_groups;
+DROP TABLE IF EXISTS app_config;
+DROP TABLE IF EXISTS packs;
+DROP TABLE IF EXISTS saved_scenarios;
+DROP TABLE IF EXISTS scenario_results;
+DROP TABLE IF EXISTS runs;

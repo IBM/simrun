@@ -1,0 +1,6 @@
+scenarios:
+  - name: bad scenario
+    expectations:
+      - timeout: 1m
+        datadogSecuritySignal:
+          name: "Test signal"
