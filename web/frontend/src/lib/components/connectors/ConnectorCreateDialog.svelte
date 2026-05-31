@@ -269,22 +269,7 @@
 						</p>
 					</div>
 				</button>
-				<button
-					type="button"
-					class="flex flex-col items-center gap-3 rounded-lg border-2 p-6 text-left transition-colors hover:bg-muted/50 {selectedType ===
-					'ssh'
-						? 'border-primary bg-muted/30'
-						: 'border-border'}"
-					onclick={() => selectType('ssh')}
-				>
-					<TerminalIcon size={48} class="text-status-success" />
-					<div class="text-center">
-						<p class="text-sm font-medium">SSH</p>
-						<p class="text-xs text-muted-foreground mt-1">
-							Remote command detonation over SSH
-						</p>
-					</div>
-				</button>
+				<!-- SSH connector hidden from picker: consumption path (pack helper + port support) not yet wired. Re-enable once SSHClientFromConnector lands. -->
 			</div>
 		{:else}
 			<Dialog.Header>
