@@ -85,11 +85,9 @@ Simulations are distributed as external packs, installed and managed via the web
 
 ### Detonators
 A **detonator** describes how and where an attack technique is executed.
-* Local command execution
-* SSH command execution (via SSH connector)
-* Simrun detonator (pack-based)
-* AWS CLI detonator
-* AWS detonator (programmatic)
+* Simrun detonator — runs a simulation pack (Terraform-based; packs can themselves
+  execute locally or over SSH)
+* AWS CLI detonator — runs AWS CLI commands
 
 ### Injectors
 An **injector** is an alternative to detonators: instead of executing the end-to-end
@@ -125,6 +123,7 @@ Simulations are distributed as [packs](#simulation-packs) and installed via the 
 ```bash
 mise run build-frontend   # build just the SvelteKit frontend
 go test ./...             # run the test suite
+mise run lint             # run golangci-lint
 go generate ./...         # regenerate mocks (mockery)
 mise run parser           # regenerate parser from JSON schemas
 ```

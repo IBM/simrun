@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/IBM/simrun/simrun/pack"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/IBM/simrun/simrun/pack"
 )
 
 func TestAWSConfig_UserAgent(t *testing.T) {

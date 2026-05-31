@@ -22,7 +22,15 @@ import (
 //
 // Returns the original content unchanged if it cannot be parsed as HCL.
 func applyBuiltinPackParams(tfContent []byte, simulationID string, defaultTagsValue map[string]string) []byte {
-	f, diags := hclwrite.ParseConfig(tfContent, "main.tf", hcl.Pos{Line: 1, Column: 1})
+	// A source file with no trailing newline leaves hclwrite's final block
+	// without a closing newline token, so AppendNewBlock would emit a
+	// malformed `}variable "..." {` run. Normalize before parsing.
+	normalized := tfContent
+	if len(normalized) > 0 && normalized[len(normalized)-1] != '\n' {
+		normalized = append(normalized[:len(normalized):len(normalized)], '\n')
+	}
+
+	f, diags := hclwrite.ParseConfig(normalized, "main.tf", hcl.Pos{Line: 1, Column: 1})
 	if diags.HasErrors() {
 		return tfContent
 	}
@@ -227,6 +235,13 @@ func injectAWSDefaultTagsVar(provider *hclwrite.Block) {
 	}
 	for _, b := range toRemove {
 		provider.Body().RemoveBlock(b)
+	}
+
+	// An empty single-line body (`provider "aws" {}`) has no newline token,
+	// so AppendNewBlock would render `provider "aws" { default_tags {` —
+	// invalid HCL. Force the body multi-line first.
+	if len(provider.Body().Attributes()) == 0 && len(provider.Body().Blocks()) == 0 {
+		provider.Body().AppendNewline()
 	}
 
 	dt := provider.Body().AppendNewBlock("default_tags", nil)

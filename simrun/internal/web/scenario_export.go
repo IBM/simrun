@@ -82,10 +82,10 @@ func (e *ResultExporter) exportToElastic(ctx context.Context, connector *db.Conn
 		return
 	}
 
-	client, err := elasticsearch.NewClient(elasticsearch.Config{
-		CloudID: cfg.CloudID,
-		APIKey:  apiKey,
-	})
+	client, err := elasticsearch.New(
+		elasticsearch.WithCloudID(cfg.CloudID),
+		elasticsearch.WithAPIKey(apiKey),
+	)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"connector": connector.Name,

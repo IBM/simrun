@@ -63,7 +63,7 @@ func TestRunnerWorks(t *testing.T) {
 				assertions = []matchers.AlertGeneratedMatcher{mockMatcher}
 			}
 
-			runner := TestRunner{
+			runner := Runner{
 				Scenarios: []*Scenario{
 					{
 						Name:       "test-scenario",
@@ -116,7 +116,7 @@ func TestRunnerErrorHandling(t *testing.T) {
 	mockMatcher.On("Cleanup", []string{"my-uid"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
 	mockMatcher.On("HasExpectedAlert", []string{"my-uid"}, mock.AnythingOfType("*logrus.Entry")).Return(true, nil)
 
-	runner := TestRunner{
+	runner := Runner{
 		Scenarios: []*Scenario{
 			{
 				Name:       "test-scenario1",
@@ -180,7 +180,7 @@ func TestRunnerWithExecutionUUID(t *testing.T) {
 	mockMatcher.On("AlertName").Return("sample alert")
 	mockMatcher.On("Cleanup", expectedIndicators, mock.AnythingOfType("*logrus.Entry")).Return(nil)
 
-	runner := Simrun()
+	runner := NewRunner()
 	runner.Scenarios = []*Scenario{
 		{
 			Name:       "test-scenario-with-uuid",
@@ -230,14 +230,14 @@ func TestRunnerExploreModeFailsWhenNoAlertsDiscovered(t *testing.T) {
 		Name:        "explore-no-alerts",
 		Detonator:   mockDetonator,
 		ExploreMode: true,
-		Timeout:    30 * time.Millisecond,
+		Timeout:     30 * time.Millisecond,
 		EnvVars: map[string]string{
 			"SR_KIBANA_URL":      ts.URL,
 			"SR_ELASTIC_API_KEY": "test",
 		},
 	}
 
-	runner := TestRunner{
+	runner := Runner{
 		Scenarios: []*Scenario{scenario},
 		Interval:  1 * time.Millisecond,
 	}
@@ -273,14 +273,14 @@ func TestRunnerExploreModeSucceedsWhenAlertsDiscovered(t *testing.T) {
 		Name:        "explore-with-alerts",
 		Detonator:   mockDetonator,
 		ExploreMode: true,
-		Timeout:    30 * time.Millisecond,
+		Timeout:     30 * time.Millisecond,
 		EnvVars: map[string]string{
 			"SR_KIBANA_URL":      ts.URL,
 			"SR_ELASTIC_API_KEY": "test",
 		},
 	}
 
-	runner := TestRunner{
+	runner := Runner{
 		Scenarios: []*Scenario{scenario},
 		Interval:  1 * time.Millisecond,
 	}
@@ -314,7 +314,7 @@ func TestRunnerWithInjector(t *testing.T) {
 		Timeout:    1 * time.Second,
 	}
 
-	runner := Simrun()
+	runner := NewRunner()
 	runner.Scenarios = []*Scenario{&scenario}
 	runner.Interval = 10 * time.Millisecond
 

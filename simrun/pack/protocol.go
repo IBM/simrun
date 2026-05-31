@@ -50,12 +50,12 @@ type SimulationManifest struct {
 
 // TemplateManifest is the manifest entry for an injection template.
 type TemplateManifest struct {
-	ID          string            `json:"id"`          // Template ID: scope.slug (e.g., "okta.add-group-member")
+	ID          string            `json:"id"` // Template ID: scope.slug (e.g., "okta.add-group-member")
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Scope       string            `json:"scope"`
-	Content     string            `json:"content"`         // Base64-encoded template content
-	Vars        map[string]string `json:"vars,omitempty"`  // Variable names to default values, extracted from template
+	Content     string            `json:"content"`        // Base64-encoded template content
+	Vars        map[string]string `json:"vars,omitempty"` // Variable names to default values, extracted from template
 }
 
 // LogLine represents a JSON log line written to stderr by a pack.

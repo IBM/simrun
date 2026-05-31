@@ -1,3 +1,4 @@
+// Package elastic matches expected Elastic Security detection alerts.
 package elastic
 
 import (
@@ -185,11 +186,6 @@ func (m *ElasticSecurityAlertGeneratedAssertion) Cleanup(indicators []string, lo
 }
 
 func (m *ElasticSecurityAlertGeneratedAssertion) buildElasticAlertQuery() string {
-	type matchPhrase struct {
-		Field string
-		Value string
-	}
-
 	type queryStruct struct {
 		Size  int                      `json:"size"`
 		Query map[string]interface{}   `json:"query"`

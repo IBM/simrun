@@ -86,4 +86,3 @@ func RequireString(m map[string]any, key string) (string, *Result) {
 	}
 	return val, nil
 }
-

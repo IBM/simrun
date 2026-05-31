@@ -91,7 +91,9 @@ func (r *RunLogRegistry) Unregister(runID string) {
 	r.mu.Unlock()
 
 	if ok && w != nil {
-		w.Close()
+		if err := w.Close(); err != nil {
+			logrus.WithError(err).WithField("run_id", runID).Warn("failed to close run log writer")
+		}
 	}
 }
 
@@ -169,7 +171,7 @@ func (h *RunLogHook) Fire(entry *logrus.Entry) error {
 
 // DeleteRunLog removes a run's JSONL log file from disk.
 func DeleteRunLog(dataDir, runID string) {
-	os.Remove(filepath.Join(dataDir, "run-logs", runID+".jsonl"))
+	_ = os.Remove(filepath.Join(dataDir, "run-logs", runID+".jsonl"))
 }
 
 // ReadRunLog reads a run's JSONL log file and returns the entries.

@@ -1,3 +1,6 @@
+// Package pack is the SDK for building simrun simulation packs — standalone
+// binaries that simrun invokes over a JSON stdin/stdout protocol to detonate
+// attacks and report results.
 package pack
 
 import (
@@ -95,7 +98,6 @@ func registerItem[T any](itemType, id, scope string, item T, registry map[string
 	}
 	registry[fullID] = item
 }
-
 
 // GetSimulation returns a registered simulation by ID (scope.slug).
 func GetSimulation(id string) (*Simulation, bool) {

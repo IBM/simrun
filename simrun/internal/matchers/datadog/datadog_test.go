@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
-	"github.com/aws/smithy-go/ptr"
 	"github.com/IBM/simrun/simrun/internal/matchers/datadog/mocks"
+	"github.com/aws/smithy-go/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

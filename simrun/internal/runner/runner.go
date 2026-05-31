@@ -1,3 +1,5 @@
+// Package runner is the scenario execution engine: it detonates or injects,
+// polls for the expected alerts, and optionally collects related logs.
 package runner
 
 import (
@@ -23,31 +25,16 @@ type ScenarioResult struct {
 	CollectedDocCount       int     `json:"collectedDocCount,omitempty"`
 }
 
-type TestRunner struct {
-	Builders  []*ScenarioBuilder
+type Runner struct {
 	Scenarios []*Scenario
 	Interval  time.Duration
 }
 
-func Simrun() *TestRunner {
-	return &TestRunner{Interval: 2 * time.Second}
+func NewRunner() *Runner {
+	return &Runner{Interval: 2 * time.Second}
 }
 
-func (m *TestRunner) Scenario(name string) *ScenarioBuilder {
-	builder := ScenarioBuilder{}
-	builder.Name = name
-	builder.Timeout = 10 * time.Minute // default timeout
-	m.Builders = append(m.Builders, &builder)
-	return &builder
-}
-
-func (m *TestRunner) Add(scenario *ScenarioBuilder) {
-	m.Scenarios = append(m.Scenarios, scenario.Build())
-}
-
-func (m *TestRunner) Run() ([]ScenarioResult, error) {
-	m.buildScenarios()
-
+func (m *Runner) Run() ([]ScenarioResult, error) {
 	var results []ScenarioResult
 	failedScenarios := map[string]error{}
 
@@ -87,15 +74,7 @@ func (m *TestRunner) Run() ([]ScenarioResult, error) {
 	return results, nil
 }
 
-func (m *TestRunner) buildScenarios() {
-	if len(m.Scenarios) == 0 {
-		for i := range m.Builders {
-			m.Scenarios = append(m.Scenarios, m.Builders[i].Build())
-		}
-	}
-}
-
-func (m *TestRunner) runScenario(scenario *Scenario) (string, float64, error) {
+func (m *Runner) runScenario(scenario *Scenario) (string, float64, error) {
 	if scenario.Detonator == nil && scenario.Injector == nil {
 		return "", 0, fmt.Errorf("scenario must have either a detonator or an injector")
 	}
@@ -171,7 +150,7 @@ func isCollectMode(scenario *Scenario) bool {
 	return true
 }
 
-func (m *TestRunner) executeScenario(scenario *Scenario) (map[string]string, *logrus.Entry, error) {
+func (m *Runner) executeScenario(scenario *Scenario) (map[string]string, *logrus.Entry, error) {
 	var executionOutput map[string]string
 	var err error
 	var logger *logrus.Entry
@@ -185,7 +164,7 @@ func (m *TestRunner) executeScenario(scenario *Scenario) (map[string]string, *lo
 	return executionOutput, logger, err
 }
 
-func (m *TestRunner) executeDetonator(scenario *Scenario) (*logrus.Entry, map[string]string, error) {
+func (m *Runner) executeDetonator(scenario *Scenario) (*logrus.Entry, map[string]string, error) {
 	if scenario.RunID != "" {
 		scenario.Detonator.SetRunID(scenario.RunID)
 	}
@@ -215,10 +194,10 @@ func (m *TestRunner) executeDetonator(scenario *Scenario) (*logrus.Entry, map[st
 	return logger, executionOutput, err
 }
 
-func (m *TestRunner) executeInjector(scenario *Scenario) (*logrus.Entry, map[string]string, error) {
+func (m *Runner) executeInjector(scenario *Scenario) (*logrus.Entry, map[string]string, error) {
 	fields := logrus.Fields{
 		"scenario": scenario.Name,
-		"injector": fmt.Sprintf("%s", scenario.Injector),
+		"injector": scenario.Injector.String(),
 	}
 	if scenario.RunID != "" {
 		fields["run_id"] = scenario.RunID
@@ -232,7 +211,7 @@ func (m *TestRunner) executeInjector(scenario *Scenario) (*logrus.Entry, map[str
 	return logger, executionOutput, err
 }
 
-func (m *TestRunner) runAssertions(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) error {
+func (m *Runner) runAssertions(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) error {
 	// Set start time on Elastic assertions to scope queries to this run
 	for _, a := range scenario.Assertions {
 		if ea, ok := a.(*elastic.ElasticSecurityAlertGeneratedAssertion); ok {
@@ -277,7 +256,7 @@ func (m *TestRunner) runAssertions(scenario *Scenario, indicators []string, logg
 	return m.buildAssertionError(scenario, remainingAssertions, numRemainingAssertions, logger)
 }
 
-func (m *TestRunner) checkAssertion(assertion matchers.AlertGeneratedMatcher, indicators []string, logger *logrus.Entry, start time.Time) (bool, error) {
+func (m *Runner) checkAssertion(assertion matchers.AlertGeneratedMatcher, indicators []string, logger *logrus.Entry, start time.Time) (bool, error) {
 	hasAlert, err := assertion.HasExpectedAlert(indicators, logger)
 	if err != nil {
 		return false, err
@@ -299,7 +278,7 @@ func (m *TestRunner) checkAssertion(assertion matchers.AlertGeneratedMatcher, in
 	return false, nil
 }
 
-func (m *TestRunner) buildAssertionError(scenario *Scenario, remainingAssertions chan matchers.AlertGeneratedMatcher, numRemainingAssertions int, logger *logrus.Entry) error {
+func (m *Runner) buildAssertionError(scenario *Scenario, remainingAssertions chan matchers.AlertGeneratedMatcher, numRemainingAssertions int, logger *logrus.Entry) error {
 	failedAssertions := make([]string, 0, numRemainingAssertions)
 	scenario.FailedAssertions = make([]matchers.AlertGeneratedMatcher, 0, numRemainingAssertions)
 	for i := 0; i < numRemainingAssertions; i++ {
@@ -317,7 +296,7 @@ func (m *TestRunner) buildAssertionError(scenario *Scenario, remainingAssertions
 	return fmt.Errorf("%d out of %d assertions did not pass: %s", numRemainingAssertions, len(scenario.Assertions), strings.Join(failedAssertions, ", "))
 }
 
-func (m *TestRunner) runCollection(ctx context.Context, scenario *Scenario, executionOutput map[string]string, logger *logrus.Entry) (string, int) {
+func (m *Runner) runCollection(ctx context.Context, scenario *Scenario, executionOutput map[string]string, logger *logrus.Entry) (string, int) {
 	logger = logger.WithFields(logrus.Fields{
 		"collector": scenario.Collector.String(),
 	})
@@ -338,7 +317,7 @@ func (m *TestRunner) runCollection(ctx context.Context, scenario *Scenario, exec
 	return outputPath, collected
 }
 
-func (m *TestRunner) runExploreMode(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) error {
+func (m *Runner) runExploreMode(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) error {
 	if len(indicators) == 0 {
 		return fmt.Errorf("explore mode requires at least one indicator to search for")
 	}
@@ -401,7 +380,7 @@ func (m *TestRunner) runExploreMode(scenario *Scenario, indicators []string, log
 	return nil
 }
 
-func (m *TestRunner) CleanupScenario(scenario *Scenario, indicators []string, logger *logrus.Entry) {
+func (m *Runner) CleanupScenario(scenario *Scenario, indicators []string, logger *logrus.Entry) {
 	if len(scenario.Assertions) == 0 || scenario.ExploreMode {
 		return
 	}
@@ -424,7 +403,7 @@ func reportStatus(scenario *Scenario, phase string) {
 	}
 }
 
-func (m *TestRunner) buildIndicatorsList(scenario *Scenario, detonationOutput map[string]string) []string {
+func (m *Runner) buildIndicatorsList(scenario *Scenario, detonationOutput map[string]string) []string {
 	var indicators []string
 
 	// Always include execution_id

@@ -45,22 +45,3 @@ func MergeWithProcessEnv(envVars map[string]string) []string {
 	}
 	return result
 }
-
-// MergeEnvMaps merges os.Environ() as a base, then overlays envVars,
-// then overlays customVars. Returns a map[string]string suitable for
-// terraform-exec's SetEnv.
-func MergeEnvMaps(envVars map[string]string, customVars map[string]string) map[string]string {
-	env := make(map[string]string)
-	for _, e := range os.Environ() {
-		if i := strings.IndexByte(e, '='); i >= 0 {
-			env[e[:i]] = e[i+1:]
-		}
-	}
-	for k, v := range envVars {
-		env[k] = v
-	}
-	for k, v := range customVars {
-		env[k] = v
-	}
-	return env
-}

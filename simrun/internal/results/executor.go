@@ -56,7 +56,7 @@ func RunScenariosParallel(
 
 func runSingleScenario(scenarios <-chan *runner.Scenario, results chan<- *ScenarioRunResult) {
 	for scenario := range scenarios {
-		testRunner := runner.Simrun()
+		testRunner := runner.NewRunner()
 		testRunner.Scenarios = append(testRunner.Scenarios, scenario)
 		testRunner.Interval = 10 * time.Second
 
@@ -121,4 +121,3 @@ func runSingleScenario(scenarios <-chan *runner.Scenario, results chan<- *Scenar
 		}
 	}
 }
-

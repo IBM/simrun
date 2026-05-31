@@ -148,7 +148,7 @@ func (r *Resolver) download(ctx context.Context, cfg PackConfig) error {
 	urls := r.buildDownloadURLs(org, repo, cfg)
 	logrus.WithField("pack", cfg.Name).WithField("version", cfg.Version).WithField("url", urls.archive).Info("Downloading pack")
 
-	archiveData, err := r.downloadAndVerify(ctx, urls, cfg.Name)
+	archiveData, err := r.downloadAndVerify(ctx, urls)
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func (r *Resolver) buildDownloadURLs(org, repo string, cfg PackConfig) downloadU
 }
 
 // downloadAndVerify downloads an archive and verifies its checksum.
-func (r *Resolver) downloadAndVerify(ctx context.Context, urls downloadURLs, packName string) ([]byte, error) {
+func (r *Resolver) downloadAndVerify(ctx context.Context, urls downloadURLs) ([]byte, error) {
 	checksums, err := r.downloadChecksums(ctx, urls.checksums)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download checksums: %w", err)
@@ -327,7 +327,9 @@ func (r *Resolver) extractTarGz(data []byte, destDir string, expectedBinaryName 
 			outFile.Close()
 			return fmt.Errorf("failed to write file: %w", err)
 		}
-		outFile.Close()
+		if err := outFile.Close(); err != nil {
+			return fmt.Errorf("failed to finalize file: %w", err)
+		}
 
 		return nil
 	}

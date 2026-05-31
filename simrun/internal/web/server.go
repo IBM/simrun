@@ -1,3 +1,5 @@
+// Package web implements the REST API, WebSocket hub, and embedded-frontend
+// HTTP server.
 package web
 
 import (
@@ -7,8 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/IBM/simrun/simrun/internal/web/auth"
 	"github.com/IBM/simrun/simrun/internal/db"
+	"github.com/IBM/simrun/simrun/internal/web/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -62,7 +64,7 @@ func (s *Server) setupRoutes(handlers *Handlers, packHandlers *PackHandlers, sec
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	// Auth routes

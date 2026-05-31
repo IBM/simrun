@@ -1,5 +1,6 @@
 [tools]
 go = "1.25.10"
+golangci-lint = "2.12.2"
 mockery = "3.5.5"
 node = "22"
 
@@ -24,6 +25,18 @@ OPENSPEC_TELEMETRY = 0
 depends = ["build-server"]
 run = "echo 'Built simrun binary'"
 description = "Build all binaries"
+
+[tasks.lint]
+run = "golangci-lint run ./simrun/..."
+description = "Run golangci-lint"
+
+[tasks.fmt]
+run = "golangci-lint fmt ./simrun/..."
+description = "Format Go code (gofmt + goimports)"
+
+[tasks.test]
+run = "go test ./simrun/..."
+description = "Run Go tests"
 
 [tasks.parser]
 run = """

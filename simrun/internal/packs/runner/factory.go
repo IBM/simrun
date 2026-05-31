@@ -1,3 +1,5 @@
+// Package runner builds and runs pack binaries (local, uploaded, or remote)
+// behind a common interface.
 package runner
 
 import (
@@ -27,13 +29,6 @@ func NewFactory(dataDir string) (*Factory, error) {
 		return nil, fmt.Errorf("failed to create binary resolver: %w", err)
 	}
 	return &Factory{binaryResolver: r}, nil
-}
-
-// NewFactoryWithResolver creates a factory with a custom resolver (for testing).
-func NewFactoryWithResolver(r *resolver.Resolver) *Factory {
-	return &Factory{
-		binaryResolver: r,
-	}
 }
 
 // CreateRunner returns the appropriate runner for the pack type.
@@ -104,4 +99,3 @@ func (f *Factory) GetManifest(ctx context.Context, cfg config.PackConfig, parame
 
 	return &manifest, nil
 }
-

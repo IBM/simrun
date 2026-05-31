@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/IBM/simrun/simrun/internal/envutil"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/IBM/simrun/simrun/internal/envutil"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )

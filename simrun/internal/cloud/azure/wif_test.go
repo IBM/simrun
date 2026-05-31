@@ -54,4 +54,3 @@ func TestCredentialEnvVars_DefaultTokenFile(t *testing.T) {
 	assert.Equal(t, DefaultTokenFile, envVars["ARM_OIDC_TOKEN_FILE_PATH"])
 	assert.Equal(t, DefaultTokenFile, envVars["AZURE_FEDERATED_TOKEN_FILE"])
 }
-

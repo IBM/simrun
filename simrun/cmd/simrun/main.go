@@ -1,3 +1,5 @@
+// Command simrun is the ASP server: a web server with an embedded SvelteKit
+// frontend that runs attack simulations and verifies expected security alerts.
 package main
 
 import (

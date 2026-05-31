@@ -1,3 +1,5 @@
+// Package matchers verifies that the security alerts expected by a scenario
+// were generated after a simulation.
 package matchers
 
 import "github.com/sirupsen/logrus"

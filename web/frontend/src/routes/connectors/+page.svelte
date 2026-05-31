@@ -240,8 +240,11 @@
 							</div>
 						{/if}
 
+						<!-- spacer: keeps a minimum gap above the divider, grows to bottom-align footer -->
+						<div class="min-h-5 flex-1"></div>
+
 						<!-- footer -->
-						<div class="mt-auto flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
+						<div class="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
 							<span class="truncate">Secrets: {getSecretGroupName(connector.secretGroupId)}</span>
 							<span
 								class="ml-auto inline-flex shrink-0 items-center gap-1 font-medium text-primary opacity-0 transition-all duration-200 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100"

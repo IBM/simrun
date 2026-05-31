@@ -47,7 +47,7 @@ func TestConnection(ctx context.Context, cfg WIFConfig) error {
 		Scopes: []string{"https://management.azure.com/.default"},
 	})
 	if err != nil {
-		return fmt.Errorf("Azure credential validation failed: %w", err)
+		return fmt.Errorf("validate Azure credentials: %w", err)
 	}
 	return nil
 }
@@ -65,9 +65,9 @@ func CredentialEnvVars(cfg WIFConfig) map[string]string {
 		"ARM_CLIENT_ID":            cfg.ClientID,
 		"ARM_SUBSCRIPTION_ID":      cfg.SubscriptionID,
 		// Azure SDK
-		"AZURE_TENANT_ID":           cfg.TenantID,
-		"AZURE_CLIENT_ID":           cfg.ClientID,
-		"AZURE_SUBSCRIPTION_ID":     cfg.SubscriptionID,
+		"AZURE_TENANT_ID":            cfg.TenantID,
+		"AZURE_CLIENT_ID":            cfg.ClientID,
+		"AZURE_SUBSCRIPTION_ID":      cfg.SubscriptionID,
 		"AZURE_FEDERATED_TOKEN_FILE": tokenFile,
 	}
 }

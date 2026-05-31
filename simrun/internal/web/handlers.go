@@ -409,7 +409,7 @@ func (h *Handlers) HandleDownloadCollectedLogs(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
-	io.Copy(w, file)
+	_, _ = io.Copy(w, file)
 }
 
 // HandleGetConfig handles GET /api/config
@@ -462,7 +462,7 @@ func normalizeScenarioType(typ string) (string, error) {
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

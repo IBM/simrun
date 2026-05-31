@@ -1,3 +1,5 @@
+// Package detonators executes attack simulations, via simulation packs or the
+// AWS CLI.
 package detonators
 
 type Detonator interface {

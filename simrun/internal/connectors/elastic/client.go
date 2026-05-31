@@ -1,3 +1,5 @@
+// Package elastic is a minimal client for the Elastic Security detection-engine
+// API, used to validate Elastic connectors.
 package elastic
 
 import (
@@ -45,7 +47,7 @@ func (c *Client) TestConnection(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return fmt.Errorf("authentication failed with status: %d", resp.StatusCode)
 	}
 	return nil
@@ -103,7 +105,7 @@ func (c *Client) ListRules(ctx context.Context, page, perPage int, enabledOnly b
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("list rules failed with status: %d", resp.StatusCode)
 	}
 
@@ -133,7 +135,7 @@ func (c *Client) GetRule(ctx context.Context, ruleID string) (*RuleSummary, erro
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("get rule failed with status: %d", resp.StatusCode)
 	}
 

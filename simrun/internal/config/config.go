@@ -1,3 +1,5 @@
+// Package config holds simrun's configuration types: env-only Bootstrap,
+// DB-backed AppConfig, and the in-memory pack shapes used by the parser and runner.
 package config
 
 // PackType represents the type of pack.

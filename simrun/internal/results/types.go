@@ -1,3 +1,5 @@
+// Package results defines the shared run and scenario result types and a
+// parallel scenario executor.
 package results
 
 import (
@@ -24,7 +26,7 @@ type ScenarioRunResult struct {
 	Metadata                *runner.Metadata                 `json:"metadata,omitempty"`
 	CollectedLogPath        string                           `json:"collectedLogPath,omitempty"`
 	CollectedDocCount       int                              `json:"collectedDocCount,omitempty"`
-	DiscoveredAlerts        []runner.DiscoveredAlert          `json:"discoveredAlerts,omitempty"`
+	DiscoveredAlerts        []runner.DiscoveredAlert         `json:"discoveredAlerts,omitempty"`
 	ExploreMode             bool                             `json:"exploreMode,omitempty"`
 }
 

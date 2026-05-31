@@ -72,23 +72,6 @@ func NewSimrunDetonator(simulationID string, packConfig config.PackConfig, param
 	}, nil
 }
 
-// NewSimrunDetonatorWithDeps creates a new SimrunDetonator with custom dependencies (for testing).
-func NewSimrunDetonatorWithDeps(
-	simulationID string,
-	packConfig config.PackConfig,
-	params map[string]any,
-	factory *runner.Factory,
-	tfManager *terraform.Manager,
-) *SimrunDetonator {
-	return &SimrunDetonator{
-		simulationID:  simulationID,
-		packConfig:    packConfig,
-		params:        params,
-		runnerFactory: factory,
-		tfManager:     tfManager,
-	}
-}
-
 // SetStatusCallback sets a callback for reporting phase transitions during detonation.
 func (d *SimrunDetonator) SetStatusCallback(callback func(phase string)) {
 	d.statusCallback = callback

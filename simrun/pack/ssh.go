@@ -98,7 +98,7 @@ func (c *SSHClient) exec(ctx context.Context, args []string, stdin *strings.Read
 
 	// Append raw output to log file if logging is enabled
 	if c.logWriter != nil && len(outputBytes) > 0 {
-		c.logWriter.Write(outputBytes)
+		_, _ = c.logWriter.Write(outputBytes)
 	}
 
 	if cmdErr != nil {

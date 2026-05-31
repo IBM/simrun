@@ -1,3 +1,5 @@
+// Package db is the PostgreSQL persistence layer (pgx), running embedded
+// migrations on startup.
 package db
 
 import (

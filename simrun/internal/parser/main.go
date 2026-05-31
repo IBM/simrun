@@ -1,3 +1,5 @@
+// Package parser turns YAML scenario files into Scenario objects. Most types are
+// generated from the JSON schemas in simrun/schemas (see parser.go).
 package parser
 
 import (
@@ -43,7 +45,7 @@ func findPackByName(packs []config.PackConfig, name string) *config.PackConfig {
 // ParseResult contains the parsed scenarios and top-level configuration.
 type ParseResult struct {
 	Scenarios []*runner.Scenario
-	Targets map[string]string // cloud type → connector name (e.g. "aws" → "prod-aws")
+	Targets   map[string]string // cloud type → connector name (e.g. "aws" → "prod-aws")
 }
 
 // Parse turns a YAML input string into a list of Simrun scenarios
@@ -227,7 +229,6 @@ func createElasticCollector(elasticCollector *ElasticCollectorSchemaJson, scenar
 	}
 	return collectors.NewElasticCollector(collectorConfig, scenarioConfig, scenarioName)
 }
-
 
 // createDetonator creates the appropriate detonator based on the scenario configuration
 func createDetonator(detonate *SimrunSchemaJsonScenariosElemDetonate, scenarioName string, opts *ParseOptions) (detonators.Detonator, error) {

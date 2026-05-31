@@ -26,8 +26,8 @@ const (
 
 // GenerateConfig holds the parameters for kubeconfig generation.
 type GenerateConfig struct {
-	ConnectorName string            // Used for deterministic file path
-	CloudType     CloudType         // Auto-detected from cloud connector
+	ConnectorName string    // Used for deterministic file path
+	CloudType     CloudType // Auto-detected from cloud connector
 	ClusterName   string
 	Region        string
 	Project       string            // GKE only

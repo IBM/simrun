@@ -376,4 +376,3 @@ func (s *runStore) GetLatestAssertionResults(ctx context.Context) ([]LatestAsser
 	}
 	return results, rows.Err()
 }
-

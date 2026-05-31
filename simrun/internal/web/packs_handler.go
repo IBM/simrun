@@ -93,7 +93,7 @@ func (h *PackHandlers) HandleDeletePack(w http.ResponseWriter, r *http.Request) 
 		release := locks.Acquire(name)
 		defer release()
 		uploadDir := filepath.Join(h.dataDir, "packs", name, "upload")
-		os.RemoveAll(uploadDir)
+		_ = os.RemoveAll(uploadDir)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -278,16 +278,20 @@ func (h *PackHandlers) HandleUploadPack(w http.ResponseWriter, r *http.Request) 
 
 	if _, err := io.Copy(outFile, file); err != nil {
 		outFile.Close()
-		os.Remove(binaryPath)
+		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusInternalServerError, "Failed to write binary file")
 		return
 	}
-	outFile.Close()
+	if err := outFile.Close(); err != nil {
+		_ = os.Remove(binaryPath)
+		writeError(w, http.StatusInternalServerError, "Failed to finalize binary file")
+		return
+	}
 
 	// Validate pack by running manifest command
 	factory, err := packrunner.NewFactory(h.dataDir)
 	if err != nil {
-		os.Remove(binaryPath)
+		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusInternalServerError, "Failed to create pack runner factory")
 		return
 	}
@@ -299,7 +303,7 @@ func (h *PackHandlers) HandleUploadPack(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if _, err := factory.GetManifest(r.Context(), cfg, nil, nil); err != nil {
-		os.Remove(binaryPath)
+		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusBadRequest,
 			fmt.Sprintf("Invalid pack binary: manifest validation failed: %v", err))
 		return
@@ -314,7 +318,7 @@ func (h *PackHandlers) HandleUploadPack(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.packStore.Upsert(r.Context(), pack, getUserEmail(r)); err != nil {
-		os.Remove(binaryPath)
+		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

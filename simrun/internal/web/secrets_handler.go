@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
@@ -189,31 +188,6 @@ func (h *SecretHandlers) encryptEntries(entries []SecretEntryRequest, existingEn
 			if existing, ok := existingEncrypted[entry.Key]; ok {
 				result[entry.Key] = existing
 			}
-		}
-	}
-	return result, nil
-}
-
-// GetAllDecrypted loads all secret groups and decrypts their entries.
-// Returns a flat map of key→value across all groups.
-func (h *SecretHandlers) GetAllDecrypted(ctx context.Context) (map[string]string, error) {
-	groups, err := h.secretStore.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make(map[string]string)
-	for _, g := range groups {
-		var entries map[string]string
-		if err := json.Unmarshal(g.Entries, &entries); err != nil {
-			continue
-		}
-		for key, encVal := range entries {
-			decrypted, err := h.encryptor.Decrypt(encVal)
-			if err != nil {
-				continue
-			}
-			result[key] = decrypted
 		}
 	}
 	return result, nil

@@ -1,3 +1,5 @@
+// Package auth provides Google OAuth login and session-cookie middleware for the
+// web API.
 package auth
 
 import (
@@ -224,7 +226,7 @@ func (h *Handlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // fetchGoogleUserInfo calls Google's userinfo API using the OAuth token.

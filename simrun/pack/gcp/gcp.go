@@ -74,7 +74,7 @@ func InitCredentials() (string, error) {
 	}
 
 	if err := os.Setenv(GoogleApplicationCredentialsEnvVar, credentialsPath); err != nil {
-		os.Remove(credentialsPath)
+		_ = os.Remove(credentialsPath)
 		return "", fmt.Errorf("failed to set %s: %w", GoogleApplicationCredentialsEnvVar, err)
 	}
 
@@ -125,8 +125,9 @@ func ClientOptions(ctx context.Context) ([]option.ClientOption, error) {
 
 	// Check for inline credentials JSON
 	if credsJSON := os.Getenv("GOOGLE_CREDENTIALS"); credsJSON != "" {
-		creds, err := google.CredentialsFromJSON(ctx, []byte(credsJSON),
-			"https://www.googleapis.com/auth/cloud-platform",
+		creds, err := google.CredentialsFromJSONWithTypeAndParams(ctx, []byte(credsJSON),
+			google.ServiceAccount,
+			google.CredentialsParams{Scopes: []string{"https://www.googleapis.com/auth/cloud-platform"}},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("parse GCP credentials JSON: %w", err)

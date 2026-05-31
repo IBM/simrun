@@ -92,6 +92,10 @@ go test ./...
 
 # Run a single test
 go test -v ./simrun/internal/... -run TestName
+
+# Lint and format (golangci-lint, pinned in mise.toml)
+mise run lint
+mise run fmt
 ```
 
 ## Architecture
@@ -101,7 +105,6 @@ go test -v ./simrun/internal/... -run TestName
 **Detonators** (`simrun/internal/detonators/`) - Execute attack simulations:
 - `SimrunDetonator` - Detonate using simulation packs (Terraform-based)
 - `AWSCLIDetonator` - Execute AWS CLI commands
-- `AWSDetonator` - Programmatic AWS SDK operations
 
 **Injectors** (`simrun/internal/injectors/`) - Inject logs directly into SIEM:
 - `ElasticInjector` - Inject documents into Elasticsearch

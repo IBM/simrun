@@ -2,6 +2,8 @@
 // variable maps consumed by detonators and CLI tools. Shared between scenario
 // execution and the test-connection endpoint so per-cloud resolution lives in
 // exactly one place.
+// Package credentials resolves connector secret groups into the environment
+// variables a run needs.
 package credentials
 
 import (
@@ -390,14 +392,19 @@ func writeTempSSHKey(content string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 	if err := os.Chmod(f.Name(), 0600); err != nil {
-		os.Remove(f.Name())
+		f.Close()
+		_ = os.Remove(f.Name())
 		return "", err
 	}
 	if _, err := f.WriteString(content); err != nil {
-		os.Remove(f.Name())
+		f.Close()
+		_ = os.Remove(f.Name())
 		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(f.Name())
+		return "", fmt.Errorf("failed to close temp ssh key: %w", err)
 	}
 	return f.Name(), nil
 }

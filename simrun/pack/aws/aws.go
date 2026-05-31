@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/IBM/simrun/simrun/internal/version"
+	"github.com/IBM/simrun/simrun/pack"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -14,8 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	"github.com/cenkalti/backoff/v5"
-	"github.com/IBM/simrun/simrun/internal/version"
-	"github.com/IBM/simrun/simrun/pack"
 )
 
 // AWSConfig creates an AWS SDK v2 config using the default credential chain.

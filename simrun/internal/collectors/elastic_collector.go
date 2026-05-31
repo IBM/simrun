@@ -1,3 +1,4 @@
+// Package collectors gathers related logs from a SIEM after a simulation runs.
 package collectors
 
 import (
@@ -255,19 +256,19 @@ func (c *ElasticCollector) getClient() (*elasticsearch.Client, error) {
 		return c.client, nil
 	}
 
-	config := elasticsearch.Config{}
+	var opts []elasticsearch.Option
 
 	if c.Config.CloudID != "" {
-		config.CloudID = c.Config.CloudID
+		opts = append(opts, elasticsearch.WithCloudID(c.Config.CloudID))
 	} else if c.Config.ElasticsearchURL != "" {
-		config.Addresses = []string{c.Config.ElasticsearchURL}
+		opts = append(opts, elasticsearch.WithAddresses(c.Config.ElasticsearchURL))
 	}
 
 	if c.Config.APIKey != "" {
-		config.APIKey = c.Config.APIKey
+		opts = append(opts, elasticsearch.WithAPIKey(c.Config.APIKey))
 	}
 
-	client, err := elasticsearch.NewClient(config)
+	client, err := elasticsearch.New(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -328,15 +329,18 @@ func (c *ElasticCollector) executeSearch(query string) ([]map[string]interface{}
 	return documents, nil
 }
 
-func (c *ElasticCollector) writeNDJSON(documents []map[string]interface{}) error {
+func (c *ElasticCollector) writeNDJSON(documents []map[string]interface{}) (err error) {
 	file, err := os.Create(c.outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close output file: %w", cerr)
+		}
+	}()
 
 	writer := bufio.NewWriter(file)
-	defer writer.Flush()
 
 	for _, doc := range documents {
 		var buf bytes.Buffer
@@ -350,6 +354,9 @@ func (c *ElasticCollector) writeNDJSON(documents []map[string]interface{}) error
 		}
 	}
 
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush output file: %w", err)
+	}
 	return nil
 }
 

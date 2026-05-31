@@ -1,3 +1,4 @@
+// Package datadog matches expected Datadog security signals.
 package datadog
 
 import (
@@ -26,6 +27,7 @@ func (m *DatadogAlertGeneratedAssertionBuilder) HasExpectedAlert(indicators []st
 func (m *DatadogAlertGeneratedAssertionBuilder) Cleanup(indicators []string, logger *logrus.Entry) error {
 	return m.DatadogAlertGeneratedAssertion.Cleanup(indicators, logger)
 }
+
 const QueryOpenSignalsByAlertNameAndSeverity = `@workflow.triage.state:open @workflow.rule.name:"%s" %s`
 const QuerySeverity = `status:%s`
 
@@ -90,7 +92,6 @@ func (m *DatadogSecuritySignalsAPIImpl) CloseSignal(id string) error {
 	}
 	return nil
 }
-
 
 func (m *DatadogAlertGeneratedAssertion) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
 	logger = m.prepareLogger(logger)

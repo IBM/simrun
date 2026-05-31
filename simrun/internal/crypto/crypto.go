@@ -1,3 +1,5 @@
+// Package crypto provides AES-256-GCM encryption for secret values stored in
+// the database.
 package crypto
 
 import (

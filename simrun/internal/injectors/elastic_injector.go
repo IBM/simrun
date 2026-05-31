@@ -1,3 +1,5 @@
+// Package injectors writes log documents directly into a SIEM, bypassing
+// detonation.
 package injectors
 
 import (
@@ -67,24 +69,23 @@ func (m *ElasticInjector) String() string {
 }
 
 func (m *ElasticInjector) createElasticsearchClient() (*elasticsearch.Client, error) {
-	config := elasticsearch.Config{}
+	var opts []elasticsearch.Option
 
 	if cloudID := envutil.Lookup(m.EnvVars, "SR_ELASTIC_CLOUD_ID"); cloudID != "" {
-		config.CloudID = cloudID
+		opts = append(opts, elasticsearch.WithCloudID(cloudID))
 	} else if url := envutil.Lookup(m.EnvVars, "SR_ELASTIC_URL"); url != "" {
-		config.Addresses = []string{url}
+		opts = append(opts, elasticsearch.WithAddresses(url))
 	}
 
 	if apiKey := envutil.Lookup(m.EnvVars, "SR_ELASTIC_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
+		opts = append(opts, elasticsearch.WithAPIKey(apiKey))
 	} else if username := envutil.Lookup(m.EnvVars, "SR_ELASTIC_USERNAME"); username != "" {
 		if password := envutil.Lookup(m.EnvVars, "SR_ELASTIC_PASSWORD"); password != "" {
-			config.Username = username
-			config.Password = password
+			opts = append(opts, elasticsearch.WithBasicAuth(username, password))
 		}
 	}
 
-	return elasticsearch.NewClient(config)
+	return elasticsearch.New(opts...)
 }
 
 // resolveTemplate gets template content from the pack cache or from a local file.
@@ -182,7 +183,7 @@ func (m *ElasticInjector) injectDocument(client *elasticsearch.Client, doc Elast
 
 	if res.IsError() {
 		body, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("Elasticsearch returned error: %s - %s", res.Status(), string(body))
+		return fmt.Errorf("elasticsearch returned error: %s - %s", res.Status(), string(body))
 	}
 
 	return nil

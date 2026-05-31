@@ -71,8 +71,7 @@ func TestElasticInjectorInject(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set environment variables
 			for key, value := range tc.envVars {
-				os.Setenv(key, value)
-				defer os.Unsetenv(key)
+				t.Setenv(key, value)
 			}
 
 			injector := &ElasticInjector{

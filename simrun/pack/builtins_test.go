@@ -4,6 +4,9 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 )
 
 // containsAssignment matches `<attr><whitespace>=<whitespace><value>` in
@@ -216,6 +219,46 @@ func TestApplyBuiltinPackParams_ParseErrorReturnsOriginal(t *testing.T) {
 	out := applyBuiltinPackParams(tf, "test.sim", nil)
 	if string(out) != string(tf) {
 		t.Errorf("expected original content on parse error, got: %s", string(out))
+	}
+}
+
+// TestApplyBuiltinPackParams_ProducesValidHCL guards against the two ways
+// default_tags injection used to emit HCL that fails `terraform init` with
+// "Missing newline after block definition":
+//   - a source whose final block has no trailing newline left hclwrite
+//     without a closing newline token, so the appended variable block ran
+//     into the previous brace as `}variable "..." {`;
+//   - an empty single-line provider body (`provider "aws" {}`) had no
+//     newline token, so the injected nested default_tags block rendered as
+//     `provider "aws" { default_tags {`.
+func TestApplyBuiltinPackParams_ProducesValidHCL(t *testing.T) {
+	tests := []struct {
+		name string
+		tf   string
+	}{
+		{
+			// No trailing newline after the final output block's closing brace.
+			name: "no trailing newline",
+			tf: `provider "aws" {
+  region = "us-east-1"
+}
+
+output "role_arn" {
+  value = aws_iam_role.role.arn
+}`,
+		},
+		{
+			name: "empty single-line aws provider",
+			tf:   "provider \"aws\" {}\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := applyBuiltinPackParams([]byte(tt.tf), "test.sim", nil)
+			if _, diags := hclwrite.ParseConfig(out, "main.tf", hcl.Pos{Line: 1, Column: 1}); diags.HasErrors() {
+				t.Fatalf("output is not valid HCL: %s\n%s", diags, out)
+			}
+		})
 	}
 }
 

@@ -15,10 +15,10 @@ type wantVar struct {
 
 func TestExtractTerraformVarsSchema(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		tfContent string
-		wantNil  bool
-		wantVars map[string]wantVar
+		wantNil   bool
+		wantVars  map[string]wantVar
 	}{
 		{
 			name: "single variable with description and default",

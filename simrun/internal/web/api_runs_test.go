@@ -138,7 +138,7 @@ func TestHandleListRuns_Filters(t *testing.T) {
 		return id
 	}
 
-	oldStd := mk("data exfil", "standard", 8*24*time.Hour)    // 8 days old
+	oldStd := mk("data exfil", "standard", 8*24*time.Hour)     // 8 days old
 	recentStd := mk("ransomware-sim", "standard", 2*time.Hour) // 2h old
 	recentExp := mk("ransomware-sim", "explore", 2*time.Hour)  // 2h old
 	recentCol := mk("logs-collect", "collect", 2*time.Hour)    // 2h old

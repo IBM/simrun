@@ -69,13 +69,13 @@ type SecretEntryRequest struct {
 type CreateSecretRequest struct {
 	Name        string               `json:"name"`
 	Description string               `json:"description"`
-	Entries     []SecretEntryRequest  `json:"entries"`
+	Entries     []SecretEntryRequest `json:"entries"`
 }
 
 type UpdateSecretRequest struct {
 	Name        string               `json:"name"`
 	Description string               `json:"description"`
-	Entries     []SecretEntryRequest  `json:"entries"`
+	Entries     []SecretEntryRequest `json:"entries"`
 }
 
 // SecretGroupResponse is returned by list/get — values are stripped, only keys returned.
@@ -180,29 +180,29 @@ type ElasticConnectorConfig struct {
 type KubernetesConnectorConfig struct {
 	ClusterName    string `json:"cluster_name"`
 	Region         string `json:"region"`
-	CloudConnector string `json:"cloud_connector"`           // name of AWS/GCP/Azure connector
-	ResourceGroup  string `json:"resource_group,omitempty"`  // AKS only
-	Project        string `json:"project,omitempty"`         // GKE only (falls back to GCP connector's project_id)
+	CloudConnector string `json:"cloud_connector"`          // name of AWS/GCP/Azure connector
+	ResourceGroup  string `json:"resource_group,omitempty"` // AKS only
+	Project        string `json:"project,omitempty"`        // GKE only (falls back to GCP connector's project_id)
 }
 
 // AzureConnectorConfig is the structure stored in Connector.Config JSONB for azure type.
 type AzureConnectorConfig struct {
-	AuthType       string `json:"auth_type"`                  // "workload_identity_federation" or "" (legacy service principal)
-	TenantID       string `json:"tenant_id"`                  // Azure AD tenant ID
-	SubscriptionID string `json:"subscription_id"`            // Azure subscription ID
-	ClientID       string `json:"client_id"`                  // Azure AD application (client) ID
-	TokenFile      string `json:"token_file,omitempty"`       // OIDC token file path (WIF) — defaults to EKS path
+	AuthType       string `json:"auth_type"`            // "workload_identity_federation" or "" (legacy service principal)
+	TenantID       string `json:"tenant_id"`            // Azure AD tenant ID
+	SubscriptionID string `json:"subscription_id"`      // Azure subscription ID
+	ClientID       string `json:"client_id"`            // Azure AD application (client) ID
+	TokenFile      string `json:"token_file,omitempty"` // OIDC token file path (WIF) — defaults to EKS path
 }
 
 // GCPConnectorConfig is the structure stored in Connector.Config JSONB for gcp type.
 type GCPConnectorConfig struct {
-	AuthType            string `json:"auth_type"`                        // "workload_identity_federation" or "" (legacy service account)
-	ProjectID           string `json:"project_id,omitempty"`             // GCP project ID (e.g. "my-project") — injected as GOOGLE_CLOUD_PROJECT
-	ProjectNumber       string `json:"project_number,omitempty"`         // GCP project number (WIF)
-	PoolID              string `json:"pool_id,omitempty"`                // Workload Identity Pool ID (WIF)
-	ProviderID          string `json:"provider_id,omitempty"`            // Workload Identity Provider ID (WIF)
-	ServiceAccountEmail string `json:"service_account_email,omitempty"`  // Target service account (WIF)
-	CredentialsFile     string `json:"credentials_file,omitempty"`       // Legacy: path to credentials file
+	AuthType            string `json:"auth_type"`                       // "workload_identity_federation" or "" (legacy service account)
+	ProjectID           string `json:"project_id,omitempty"`            // GCP project ID (e.g. "my-project") — injected as GOOGLE_CLOUD_PROJECT
+	ProjectNumber       string `json:"project_number,omitempty"`        // GCP project number (WIF)
+	PoolID              string `json:"pool_id,omitempty"`               // Workload Identity Pool ID (WIF)
+	ProviderID          string `json:"provider_id,omitempty"`           // Workload Identity Provider ID (WIF)
+	ServiceAccountEmail string `json:"service_account_email,omitempty"` // Target service account (WIF)
+	CredentialsFile     string `json:"credentials_file,omitempty"`      // Legacy: path to credentials file
 }
 
 // SSHConnectorConfig is the JSON payload stored in connectors.config for type="ssh".
@@ -226,4 +226,3 @@ func (c SSHConnectorConfig) Validate() error {
 	}
 	return nil
 }
-

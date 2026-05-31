@@ -29,7 +29,7 @@ output "prefix" {
 func TestTerraformVarOptions_ExtractsOnlyDeclaredTFVarKeys(t *testing.T) {
 	env := map[string]string{
 		"TF_VAR_resource_prefix": "simrun",
-		"TF_VAR_aws_vpc_id":      "vpc-123", // a TF var, but not declared by this sim
+		"TF_VAR_aws_vpc_id":      "vpc-123",   // a TF var, but not declared by this sim
 		"AWS_REGION":             "us-west-2", // not a TF var: must be ignored
 		"TF_APPEND_USER_AGENT":   "simrun",    // not a TF var: must be ignored
 	}
