@@ -17,7 +17,7 @@ linters:
           - errcheck
         text: 'Error return value of `[^`]+\.Close` is not checked'
       # Generated code: schema-derived parser and mockery mocks.
-      - path: simrun/internal/parser/parser\.go
+      - path: internal/parser/parser\.go
         linters:
           - errcheck
           - staticcheck

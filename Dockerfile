@@ -16,18 +16,18 @@ RUN --mount=type=cache,target=/root/.npm \
     cd web/frontend && npm ci && npm run build
 
 # Copy built frontend into the Go embed directory
-RUN rm -rf simrun/internal/web/frontend && \
-    mkdir -p simrun/internal/web/frontend && \
-    cp -r web/frontend/build/* simrun/internal/web/frontend/
+RUN rm -rf internal/web/frontend && \
+    mkdir -p internal/web/frontend && \
+    cp -r web/frontend/build/* internal/web/frontend/
 
 # Build the server binary with the embedded frontend
 ARG version=unknown
 RUN CGO_ENABLED=0 go build \
     -ldflags="-w -s \
-      -X github.com/IBM/simrun/simrun/internal/version.Version=${version} \
-      -X github.com/IBM/simrun/simrun/internal/version.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
-      -X github.com/IBM/simrun/simrun/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    -o /simrun-server simrun/cmd/simrun/main.go
+      -X github.com/IBM/simrun/internal/version.Version=${version} \
+      -X github.com/IBM/simrun/internal/version.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+      -X github.com/IBM/simrun/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -o /simrun-server cmd/simrun/main.go
 
 # --- Runtime stage ---
 FROM alpine:3.21
