@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "description": "Matcher for an Elastic Security Detection alert",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the Elastic Security Detection alert rule to match on (exact match on kibana.alert.rule.name.keyword field)"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity of the Elastic Security Detection alert to match on (matches kibana.alert.severity field)",
+      "enum": ["low", "medium", "high", "critical"]
+    }
+  }
+}

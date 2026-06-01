@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/error.schema.json",
+  "title": "Error",
+  "description": "Reusable error object for pack protocol responses",
+  "type": "object",
+  "required": ["code", "message"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Machine-readable error code",
+      "enum": [
+        "PERMISSION_DENIED",
+        "RESOURCE_NOT_FOUND",
+        "TIMEOUT",
+        "INVALID_PARAMS",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable error message"
+    }
+  },
+  "additionalProperties": false
+}

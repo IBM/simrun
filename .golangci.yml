@@ -1,0 +1,44 @@
+version: "2"
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
+  # staticcheck runs its default check set, which already omits the most
+  # opinionated stylecheck rules (ST1000/ST1003/ST1021) to keep the gate quiet.
+  default: standard
+  enable:
+    - misspell
+  exclusions:
+    generated: lax
+    rules:
+      # Unchecked Close() is idiomatic for read paths (`defer x.Close()`); don't
+      # flag it. Write paths that must surface flush/close errors handle them
+      # explicitly in code.
+      - linters:
+          - errcheck
+        text: 'Error return value of `[^`]+\.Close` is not checked'
+      # Generated code: schema-derived parser and mockery mocks.
+      - path: simrun/internal/parser/parser\.go
+        linters:
+          - errcheck
+          - staticcheck
+          - unused
+      - path: mocks/
+        linters:
+          - errcheck
+          - staticcheck
+          - unused
+      # Tests: unchecked Close/cleanup errors are best-effort; failures surface
+      # via assertions, not resource leaks.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+issues:
+  # Show every finding so the gate is not silently truncated.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

@@ -1,0 +1,67 @@
+[tools]
+go = "1.25.10"
+golangci-lint = "2.12.2"
+mockery = "3.5.5"
+node = "22"
+
+[settings]
+experimental = true
+idiomatic_version_file_enable_tools = []
+
+[env]
+# verbose logging
+SR_DEBUG = "1"
+# elastic — point these at your Elasticsearch/Kibana deployment
+# SR_KIBANA_URL = "https://<your-kibana-host>:9243"
+# SR_ELASTIC_CLOUD_ID = "<your-elastic-cloud-id>"
+SR_ELASTIC_INDEX = "logs-asp.results-default"
+# collectors
+SR_COLLECTOR_USER_AGENT_FIELD = "user_agent.original"
+# misc
+SR_SSH_LOGGING_ENABLED = "1"
+OPENSPEC_TELEMETRY = 0
+
+[tasks.build]
+depends = ["build-server"]
+run = "echo 'Built simrun binary'"
+description = "Build all binaries"
+
+[tasks.lint]
+run = "golangci-lint run ./simrun/..."
+description = "Run golangci-lint"
+
+[tasks.fmt]
+run = "golangci-lint fmt ./simrun/..."
+description = "Format Go code (gofmt + goimports)"
+
+[tasks.test]
+run = "go test ./simrun/..."
+description = "Run Go tests"
+
+[tasks.parser]
+run = """
+#!/usr/bin/env bash
+go get github.com/atombender/go-jsonschema/...
+go install github.com/atombender/go-jsonschema@latest
+go-jsonschema -p parser simrun/schemas/simrun.schema.json > simrun/internal/parser/parser.go
+"""
+description = "Generate Go types from JSON schema"
+
+[tasks.build-frontend]
+run = "cd web/frontend && npm ci && npm run build"
+description = "Build SvelteKit frontend"
+
+[tasks.copy-frontend]
+depends = ["build-frontend"]
+run = "rm -rf simrun/internal/web/frontend && mkdir -p simrun/internal/web/frontend && cp -r web/frontend/build/* simrun/internal/web/frontend/"
+description = "Copy built frontend assets to Go embed directory"
+
+[tasks.build-server]
+depends = ["copy-frontend"]
+run = '''
+CGO_ENABLED=0 go build \
+  -ldflags="-w -s -X github.com/IBM/simrun/simrun/internal/version.Version=dev -X github.com/IBM/simrun/simrun/internal/version.Commit=$(git rev-parse --short HEAD) -X github.com/IBM/simrun/simrun/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o dist/simrun simrun/cmd/simrun/main.go
+'''
+description = "Build simrun Go binary (includes frontend)"
+alias = ["bs"]

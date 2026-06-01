@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/detonate-output.schema.json",
+  "title": "Detonate Output",
+  "description": "Stdout output from ./pack detonate command",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Detonation result status",
+      "enum": ["success", "error"]
+    },
+    "indicators": {
+      "type": "object",
+      "description": "Indicators extracted during detonation",
+      "additionalProperties": true
+    },
+    "error": {
+      "$ref": "error.schema.json"
+    }
+  },
+  "additionalProperties": false
+}

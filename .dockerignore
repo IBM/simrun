@@ -1,0 +1,88 @@
+# Build artifacts
+dist/
+*.tar.gz
+*.zip
+
+# Version control
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Test files
+*_test.go
+test/
+tests/
+
+# Docker files
+Dockerfile*
+docker-compose*
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Examples (unless needed for build)
+examples/
+
+# License files (not needed for build)
+LICENSE*
+NOTICE
+
+# Configuration files that aren't needed for build
+.gitattributes
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Python scripts (if not needed)
+*.py
+
+# CSV and JSON files that aren't source code
+*.csv
+*.json
+*.ndjson
+
+# YAML files that aren't part of the application
+scenarios.yaml
+mise.toml
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Archive files
+*.tar
+*.gz
+*.zip
+*.rar
+
+# Package files
+*.deb
+*.rpm
+
+# Exception: Keep injection files
+!injections/**/*.json

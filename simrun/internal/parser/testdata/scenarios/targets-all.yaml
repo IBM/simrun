@@ -1,0 +1,15 @@
+targets:
+  aws: prod-aws
+  gcp: prod-gcp
+  azure: prod-azure
+  kubernetes: prod-k8s
+  ssh: prod-ssh
+scenarios:
+  - name: targeted all
+    detonate:
+      awsCliDetonator:
+        script: "true"
+    expectations:
+      - timeout: 1m
+        datadogSecuritySignal:
+          name: "Test signal"

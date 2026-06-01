@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/detonate-input.schema.json",
+  "title": "Detonate Input",
+  "description": "Stdin input for ./pack detonate command",
+  "type": "object",
+  "required": ["simulation", "execution_id", "params", "terraform_outputs"],
+  "properties": {
+    "simulation": {
+      "type": "string",
+      "description": "Simulation ID to detonate"
+    },
+    "execution_id": {
+      "type": "string",
+      "description": "Unique execution ID for correlation"
+    },
+    "params": {
+      "type": "object",
+      "description": "Simulation parameters",
+      "additionalProperties": true
+    },
+    "terraform_outputs": {
+      "type": "object",
+      "description": "Outputs from Terraform apply (all values are strings)",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

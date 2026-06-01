@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/simrunDetonator.schema.json",
+  "title": "Simrun Detonator",
+  "description": "Definition of a simrun pack simulation detonation",
+  "type": "object",
+  "required": ["pack", "simulation"],
+  "properties": {
+    "pack": {
+      "type": "string",
+      "description": "Name of the pack containing the simulation (must match a pack name in config.yaml)"
+    },
+    "simulation": {
+      "type": "string",
+      "description": "Simulation ID to detonate (e.g., 'test.echo', 'aws.exfil.s3')"
+    },
+    "params": {
+      "type": "object",
+      "description": "Parameters to pass to the simulation",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/manifest-response.schema.json",
+  "title": "Manifest Response",
+  "description": "Response from ./pack manifest command",
+  "type": "object",
+  "required": ["pack", "simulations"],
+  "properties": {
+    "pack": {
+      "type": "object",
+      "description": "Pack metadata",
+      "required": ["name", "version", "min_simrun_version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Pack name"
+        },
+        "version": {
+          "type": "string",
+          "description": "Pack version (semver)"
+        },
+        "min_simrun_version": {
+          "type": "string",
+          "description": "Minimum simrun version required"
+        }
+      },
+      "additionalProperties": false
+    },
+    "simulations": {
+      "type": "array",
+      "description": "Array of simulations provided by the pack",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "mitre", "scope", "has_custom_cleanup"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique simulation identifier (scope.slug)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable simulation name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Simulation description"
+          },
+          "mitre": {
+            "type": "object",
+            "description": "MITRE ATT&CK framework mappings",
+            "required": ["tactics", "techniques"],
+            "properties": {
+              "tactics": {
+                "type": "array",
+                "description": "MITRE ATT&CK tactic IDs (e.g., TA0040)",
+                "items": { "type": "string" }
+              },
+              "techniques": {
+                "type": "array",
+                "description": "MITRE ATT&CK technique IDs (e.g., T1496)",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          },
+          "scope": {
+            "type": "string",
+            "description": "Simulation scope (aws, gcp, azure, generic)"
+          },
+          "is_slow": {
+            "type": "boolean",
+            "description": "Whether the simulation takes longer than usual to execute"
+          },
+          "requires_external_resources": {
+            "type": "boolean",
+            "description": "Whether the simulation requires pre-existing external infrastructure (e.g., an EKS cluster)"
+          },
+          "params_schema": {
+            "type": "object",
+            "description": "JSON Schema for simulation parameters"
+          },
+          "terraform": {
+            "type": "string",
+            "description": "Base64-encoded Terraform file contents"
+          },
+          "has_custom_cleanup": {
+            "type": "boolean",
+            "description": "Whether the simulation has custom cleanup logic"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "templates": {
+      "type": "array",
+      "description": "Array of injection templates provided by the pack",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "scope", "content"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Template identifier (scope.slug, e.g., okta.add-group-member)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable template name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Template description"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Source scope (e.g., okta, aws, gcp)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Base64-encoded template content"
+          },
+          "vars": {
+            "type": "object",
+            "description": "Template variables with default values, extracted from template content",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

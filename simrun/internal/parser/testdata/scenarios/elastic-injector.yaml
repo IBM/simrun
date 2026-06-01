@@ -1,0 +1,11 @@
+scenarios:
+  - name: elastic injector
+    inject:
+      elasticInjector:
+        documents:
+          - index: "logs-test"
+            file: "doc.json"
+    expectations:
+      - timeout: 1m
+        elasticSecurityAlert:
+          name: "Test alert"

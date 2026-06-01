@@ -1,0 +1,46 @@
+all: false
+force-file-write: true
+formatter: goimports
+include-auto-generated: false
+log-level: info
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  github.com/IBM/simrun/simrun/internal/matchers:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{.InterfaceName}}.go'
+      pkgname: 'mocks'
+      structname: 'Mock{{.InterfaceName}}'
+  github.com/IBM/simrun/simrun/internal/detonators:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{.InterfaceName}}.go'
+      pkgname: 'mocks'
+      structname: 'Mock{{.InterfaceName}}'
+  github.com/IBM/simrun/simrun/internal/matchers/datadog:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{.InterfaceName}}.go'
+      pkgname: 'mocks'
+      structname: 'Mock{{.InterfaceName}}'
+  github.com/IBM/simrun/simrun/internal/matchers/elastic:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{.InterfaceName}}.go'
+      pkgname: 'mocks'
+      structname: 'Mock{{.InterfaceName}}'
+
+  github.com/IBM/simrun/simrun/internal/injectors:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/mocks'
+      filename: '{{.InterfaceName}}.go'
+      pkgname: 'mocks'
+      structname: 'Mock{{.InterfaceName}}'

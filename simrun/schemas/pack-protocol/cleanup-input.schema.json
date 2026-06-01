@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/IBM/simrun/pack-protocol/cleanup-input.schema.json",
+  "title": "Cleanup Input",
+  "description": "Stdin input for ./pack cleanup command",
+  "type": "object",
+  "required": ["simulation", "execution_id", "params"],
+  "properties": {
+    "simulation": {
+      "type": "string",
+      "description": "Simulation ID to cleanup"
+    },
+    "execution_id": {
+      "type": "string",
+      "description": "Execution ID from detonation"
+    },
+    "params": {
+      "type": "object",
+      "description": "Simulation parameters used during detonation",
+      "additionalProperties": true
+    },
+    "detonation_result": {
+      "$ref": "detonate-output.schema.json",
+      "description": "Result from the detonation phase"
+    }
+  },
+  "additionalProperties": false
+}
