@@ -8,28 +8,28 @@ require-template-schema-exists: true
 template: testify
 template-schema: '{{.Template}}.schema.json'
 packages:
-  github.com/IBM/simrun/simrun/internal/matchers:
+  github.com/IBM/simrun/internal/matchers:
     config:
       all: true
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{.InterfaceName}}.go'
       pkgname: 'mocks'
       structname: 'Mock{{.InterfaceName}}'
-  github.com/IBM/simrun/simrun/internal/detonators:
+  github.com/IBM/simrun/internal/detonators:
     config:
       all: true
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{.InterfaceName}}.go'
       pkgname: 'mocks'
       structname: 'Mock{{.InterfaceName}}'
-  github.com/IBM/simrun/simrun/internal/matchers/datadog:
+  github.com/IBM/simrun/internal/matchers/datadog:
     config:
       all: true
       dir: '{{.InterfaceDir}}/mocks'
       filename: '{{.InterfaceName}}.go'
       pkgname: 'mocks'
       structname: 'Mock{{.InterfaceName}}'
-  github.com/IBM/simrun/simrun/internal/matchers/elastic:
+  github.com/IBM/simrun/internal/matchers/elastic:
     config:
       all: true
       dir: '{{.InterfaceDir}}/mocks'
@@ -37,7 +37,7 @@ packages:
       pkgname: 'mocks'
       structname: 'Mock{{.InterfaceName}}'
 
-  github.com/IBM/simrun/simrun/internal/injectors:
+  github.com/IBM/simrun/internal/injectors:
     config:
       all: true
       dir: '{{.InterfaceDir}}/mocks'

@@ -39,7 +39,7 @@ web/frontend/build/
 web/frontend/.svelte-kit/
 
 # Embedded frontend assets (populated at build time)
-simrun/internal/web/frontend/*
-!simrun/internal/web/frontend/.gitkeep
+internal/web/frontend/*
+!internal/web/frontend/.gitkeep
 
 _old_configs/

@@ -27,15 +27,15 @@ run = "echo 'Built simrun binary'"
 description = "Build all binaries"
 
 [tasks.lint]
-run = "golangci-lint run ./simrun/..."
+run = "golangci-lint run ./..."
 description = "Run golangci-lint"
 
 [tasks.fmt]
-run = "golangci-lint fmt ./simrun/..."
+run = "golangci-lint fmt ./..."
 description = "Format Go code (gofmt + goimports)"
 
 [tasks.test]
-run = "go test ./simrun/..."
+run = "go test ./..."
 description = "Run Go tests"
 
 [tasks.parser]
@@ -43,7 +43,7 @@ run = """
 #!/usr/bin/env bash
 go get github.com/atombender/go-jsonschema/...
 go install github.com/atombender/go-jsonschema@latest
-go-jsonschema -p parser simrun/schemas/simrun.schema.json > simrun/internal/parser/parser.go
+go-jsonschema -p parser schemas/simrun.schema.json > internal/parser/parser.go
 """
 description = "Generate Go types from JSON schema"
 
@@ -53,15 +53,15 @@ description = "Build SvelteKit frontend"
 
 [tasks.copy-frontend]
 depends = ["build-frontend"]
-run = "rm -rf simrun/internal/web/frontend && mkdir -p simrun/internal/web/frontend && cp -r web/frontend/build/* simrun/internal/web/frontend/"
+run = "rm -rf internal/web/frontend && mkdir -p internal/web/frontend && cp -r web/frontend/build/* internal/web/frontend/"
 description = "Copy built frontend assets to Go embed directory"
 
 [tasks.build-server]
 depends = ["copy-frontend"]
 run = '''
 CGO_ENABLED=0 go build \
-  -ldflags="-w -s -X github.com/IBM/simrun/simrun/internal/version.Version=dev -X github.com/IBM/simrun/simrun/internal/version.Commit=$(git rev-parse --short HEAD) -X github.com/IBM/simrun/simrun/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -o dist/simrun simrun/cmd/simrun/main.go
+  -ldflags="-w -s -X github.com/IBM/simrun/internal/version.Version=dev -X github.com/IBM/simrun/internal/version.Commit=$(git rev-parse --short HEAD) -X github.com/IBM/simrun/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o dist/simrun cmd/simrun/main.go
 '''
 description = "Build simrun Go binary (includes frontend)"
 alias = ["bs"]
