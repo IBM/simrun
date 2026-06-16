@@ -1,0 +1,31 @@
+name: pr-size
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  size-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: pascalgn/size-label-action@56b489b027932ec0cf60438a1a5f1a19c8fc71ff # v0.5.7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Lower-bound line counts per label, matching the reference thresholds:
+          # XS <10, S <50, M <200, L <500, XL <1000, XXL >=1000
+          sizes: >
+            {
+              "0": "XS",
+              "10": "S",
+              "50": "M",
+              "200": "L",
+              "500": "XL",
+              "1000": "XXL"
+            }
