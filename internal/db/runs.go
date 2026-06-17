@@ -16,6 +16,9 @@ type RunStore interface {
 	Create(ctx context.Context, run *Run) error
 	Get(ctx context.Context, id uuid.UUID) (*Run, error)
 	List(ctx context.Context, filters ListRunsFilters, limit, offset int) (RunPage, error)
+	// ListExpired returns the IDs of runs created before cutoff whose status is
+	// not "running" — the assessment-retention sweeper's deletion candidates.
+	ListExpired(ctx context.Context, cutoff time.Time) ([]uuid.UUID, error)
 	Update(ctx context.Context, id uuid.UUID, status string, total, succeeded, failed int, endTime *time.Time) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	AddScenarioResult(ctx context.Context, runID uuid.UUID, result *ScenarioResult) error
@@ -220,6 +223,26 @@ func buildRunsWhere(f ListRunsFilters) (string, []any) {
 		return "", args
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func (s *runStore) ListExpired(ctx context.Context, cutoff time.Time) ([]uuid.UUID, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id FROM runs WHERE created_at < $1 AND status <> 'running'`, cutoff,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (s *runStore) Update(ctx context.Context, id uuid.UUID, status string, total, succeeded, failed int, endTime *time.Time) error {

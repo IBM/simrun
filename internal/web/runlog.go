@@ -174,6 +174,42 @@ func DeleteRunLog(dataDir, runID string) {
 	_ = os.Remove(filepath.Join(dataDir, "run-logs", runID+".jsonl"))
 }
 
+// SweepRunLogs deletes run-log JSONL files in <dataDir>/run-logs whose last
+// modification time is older than days. It is a no-op when enabled is false.
+// Deleting a log file does not touch the corresponding runs row — only the
+// verbose log expires. Best-effort: per-file failures are logged, not fatal.
+func SweepRunLogs(dataDir string, enabled bool, days int) {
+	if !enabled {
+		return
+	}
+
+	dir := filepath.Join(dataDir, "run-logs")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logrus.WithError(err).WithField("dir", dir).Warn("run-log sweep: failed to read run-logs directory")
+		}
+		return
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -days)
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Before(cutoff) {
+			path := filepath.Join(dir, e.Name())
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				logrus.WithError(err).WithField("path", path).Warn("run-log sweep: failed to remove aged log file")
+			}
+		}
+	}
+}
+
 // ReadRunLog reads a run's JSONL log file and returns the entries.
 func ReadRunLog(dataDir, runID string) ([]RunLogEntry, error) {
 	path := filepath.Join(dataDir, "run-logs", runID+".jsonl")

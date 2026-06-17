@@ -96,6 +96,30 @@ func parseAppConfig(all map[string]json.RawMessage) config.AppConfig {
 			cfg.SSHLoggingEnabled = b
 		}
 	}
+	if v, ok := all["assessment_log_retention_enabled"]; ok {
+		var b bool
+		if err := json.Unmarshal(v, &b); err == nil {
+			cfg.AssessmentLogRetentionEnabled = b
+		}
+	}
+	if v, ok := all["assessment_log_retention_days"]; ok {
+		var n int
+		if err := json.Unmarshal(v, &n); err == nil && n > 0 {
+			cfg.AssessmentLogRetentionDays = n
+		}
+	}
+	if v, ok := all["assessment_retention_enabled"]; ok {
+		var b bool
+		if err := json.Unmarshal(v, &b); err == nil {
+			cfg.AssessmentRetentionEnabled = b
+		}
+	}
+	if v, ok := all["assessment_retention_days"]; ok {
+		var n int
+		if err := json.Unmarshal(v, &n); err == nil && n > 0 {
+			cfg.AssessmentRetentionDays = n
+		}
+	}
 
 	return cfg
 }
@@ -114,6 +138,10 @@ func appConfigKVs(c config.AppConfig) []appConfigKV {
 		{"terraform_version", c.TerraformVersion},
 		{"pack_logs_enabled", c.PackLogsEnabled},
 		{"ssh_logging_enabled", c.SSHLoggingEnabled},
+		{"assessment_log_retention_enabled", c.AssessmentLogRetentionEnabled},
+		{"assessment_log_retention_days", c.AssessmentLogRetentionDays},
+		{"assessment_retention_enabled", c.AssessmentRetentionEnabled},
+		{"assessment_retention_days", c.AssessmentRetentionDays},
 	}
 }
 

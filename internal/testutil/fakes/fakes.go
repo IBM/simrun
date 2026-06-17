@@ -116,6 +116,18 @@ func matchesRunFilters(r *db.Run, f db.ListRunsFilters) bool {
 	return true
 }
 
+func (s *RunStore) ListExpired(_ context.Context, cutoff time.Time) ([]uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var ids []uuid.UUID
+	for id, r := range s.runs {
+		if r.CreatedAt.Before(cutoff) && r.Status != "running" {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
 func (s *RunStore) Update(_ context.Context, id uuid.UUID, status string, total, succeeded, failed int, endTime *time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -703,6 +715,30 @@ func (s *ConfigStore) GetAppConfig(_ context.Context) (config.AppConfig, error) 
 			out.SSHLoggingEnabled = v
 		}
 	}
+	if raw, ok := s.data["assessment_log_retention_enabled"]; ok {
+		var v bool
+		if err := json.Unmarshal(raw, &v); err == nil {
+			out.AssessmentLogRetentionEnabled = v
+		}
+	}
+	if raw, ok := s.data["assessment_log_retention_days"]; ok {
+		var v int
+		if err := json.Unmarshal(raw, &v); err == nil && v > 0 {
+			out.AssessmentLogRetentionDays = v
+		}
+	}
+	if raw, ok := s.data["assessment_retention_enabled"]; ok {
+		var v bool
+		if err := json.Unmarshal(raw, &v); err == nil {
+			out.AssessmentRetentionEnabled = v
+		}
+	}
+	if raw, ok := s.data["assessment_retention_days"]; ok {
+		var v int
+		if err := json.Unmarshal(raw, &v); err == nil && v > 0 {
+			out.AssessmentRetentionDays = v
+		}
+	}
 	return out, nil
 }
 
@@ -710,10 +746,14 @@ func (s *ConfigStore) UpdateAppConfig(_ context.Context, c config.AppConfig) err
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, v := range map[string]any{
-		"parallelism":         c.Parallelism,
-		"terraform_version":   c.TerraformVersion,
-		"pack_logs_enabled":   c.PackLogsEnabled,
-		"ssh_logging_enabled": c.SSHLoggingEnabled,
+		"parallelism":                      c.Parallelism,
+		"terraform_version":                c.TerraformVersion,
+		"pack_logs_enabled":                c.PackLogsEnabled,
+		"ssh_logging_enabled":              c.SSHLoggingEnabled,
+		"assessment_log_retention_enabled": c.AssessmentLogRetentionEnabled,
+		"assessment_log_retention_days":    c.AssessmentLogRetentionDays,
+		"assessment_retention_enabled":     c.AssessmentRetentionEnabled,
+		"assessment_retention_days":        c.AssessmentRetentionDays,
 	} {
 		raw, err := json.Marshal(v)
 		if err != nil {

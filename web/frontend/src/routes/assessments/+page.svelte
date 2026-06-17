@@ -12,14 +12,21 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { runs } from '$lib/stores/runs';
-	import { listRuns, deleteRun, type RunFilters } from '$lib/api/client';
+	import { listRuns, deleteRun, getConfig, type RunFilters } from '$lib/api/client';
 	import { goto } from '$app/navigation';
-	import { statusVariant, formatDuration, formatUserEmail, scenarioTypeVariant } from '$lib/utils/format';
-	import type { Run, ScenarioType } from '$lib/types';
+	import {
+		statusVariant,
+		formatDuration,
+		formatUserEmail,
+		scenarioTypeVariant
+	} from '$lib/utils/format';
+	import type { Run, ScenarioType, AppConfig } from '$lib/types';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import NewAssessmentDialog from '$lib/components/NewAssessmentDialog.svelte';
+	import RetentionDialog from '$lib/components/RetentionDialog.svelte';
 	import PenLineIcon from '@lucide/svelte/icons/pen-line';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import TimerIcon from '@lucide/svelte/icons/timer';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -40,6 +47,24 @@
 	let loading = $state(true);
 	let error = $state('');
 	let newAssessmentOpen = $state(false);
+
+	let retentionOpen = $state(false);
+	let retentionConfig = $state<AppConfig>({});
+
+	// Load config lazily when opening retention settings so the common case
+	// (browsing assessments) doesn't pay for an extra request.
+	async function openRetention() {
+		try {
+			retentionConfig = await getConfig();
+			retentionOpen = true;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load retention settings';
+		}
+	}
+
+	function handleRetentionSaved(changes: Record<string, unknown>) {
+		retentionConfig = { ...retentionConfig, ...changes };
+	}
 
 	let deleteDialogOpen = $state(false);
 	let deleteTarget = $state<Run | null>(null);
@@ -172,7 +197,7 @@
 
 	async function changePerPage(value: string) {
 		const next = Number(value);
-		if (!PAGE_SIZES.includes(next as typeof PAGE_SIZES[number])) return;
+		if (!PAGE_SIZES.includes(next as (typeof PAGE_SIZES)[number])) return;
 		stopPolling();
 		perPage = next;
 		page = 1;
@@ -269,16 +294,21 @@
 			deleting = false;
 		}
 	}
-
 </script>
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold">Assessment History</h1>
-		<Button onclick={() => (newAssessmentOpen = true)}>
-			<PlusIcon class="mr-2 h-4 w-4" />
-			New Assessment
-		</Button>
+		<div class="flex items-center gap-2">
+			<Button variant="outline" onclick={openRetention}>
+				<TimerIcon class="mr-2 h-4 w-4" />
+				Retention
+			</Button>
+			<Button onclick={() => (newAssessmentOpen = true)}>
+				<PlusIcon class="mr-2 h-4 w-4" />
+				New Assessment
+			</Button>
+		</div>
 	</div>
 
 	<div class="flex flex-wrap items-end gap-3">
@@ -419,9 +449,7 @@
 							</Table.Cell>
 							<Table.Cell>{run.total}</Table.Cell>
 							<Table.Cell class="text-success">{run.succeeded}</Table.Cell>
-							<Table.Cell class={run.failed > 0 ? 'text-destructive' : ''}
-								>{run.failed}</Table.Cell
-							>
+							<Table.Cell class={run.failed > 0 ? 'text-destructive' : ''}>{run.failed}</Table.Cell>
 							<Table.Cell>
 								<Tooltip.Root>
 									<Tooltip.Trigger class="text-muted-foreground text-xs cursor-default">
@@ -512,6 +540,12 @@
 </div>
 
 <NewAssessmentDialog bind:open={newAssessmentOpen} />
+
+<RetentionDialog
+	bind:open={retentionOpen}
+	config={retentionConfig}
+	onsaved={handleRetentionSaved}
+/>
 
 <!-- Delete Confirmation Dialog -->
 <Dialog.Root bind:open={deleteDialogOpen}>
