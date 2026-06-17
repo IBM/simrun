@@ -8,8 +8,8 @@ on:
       - reopened
 
 permissions:
-  pull-requests: write
-  issues: write
+  pull-requests: write # add/remove labels on the PR (label op on a PR resource)
+  issues: write # create the size/* label if it doesn't exist yet
 
 jobs:
   size-label:
@@ -33,7 +33,7 @@ jobs:
             const label = `size/${bucket.name}`;
             const { owner, repo } = context.repo;
 
-            // Ensure the label exists with the desired color.
+            // Create the label with the desired color if it doesn't already exist.
             try {
               await github.rest.issues.getLabel({ owner, repo, name: label });
             } catch (e) {
