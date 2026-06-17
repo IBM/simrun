@@ -122,13 +122,16 @@ func main() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 		sweep := func() {
-			cfg, err := configStore.GetAppConfig(context.Background())
+			// Use the main ctx so a shutdown signal cancels in-flight DB work
+			// (config load + the per-run deletes the assessment sweep loops over)
+			// instead of blocking shutdown on a slow Postgres.
+			cfg, err := configStore.GetAppConfig(ctx)
 			if err != nil {
 				log.Warnf("Retention sweep: failed to load config: %v", err)
 				return
 			}
 			web.SweepRunLogs(bootstrap.DataDir, cfg.AssessmentLogRetentionEnabled, cfg.AssessmentLogRetentionDays)
-			web.SweepAssessments(context.Background(), runStore, bootstrap.DataDir, cfg.AssessmentRetentionEnabled, cfg.AssessmentRetentionDays)
+			web.SweepAssessments(ctx, runStore, bootstrap.DataDir, cfg.AssessmentRetentionEnabled, cfg.AssessmentRetentionDays)
 		}
 		sweep()
 		for {

@@ -44,17 +44,29 @@
 	});
 
 	async function handleSave() {
-		saving = true;
 		error = '';
 
+		const logDaysInt = Math.trunc(Number(logDays));
+		const assessmentDaysInt = Math.trunc(Number(assessmentDays));
+
+		// Validate before sending anything. The backend also rejects days < 1
+		// with HTTP 400, but checking up front avoids a partial save: keys are
+		// PUT one at a time, so a rejected day field could otherwise leave an
+		// already-persisted enable toggle behind while the dialog shows an error.
+		if (logDaysInt < 1 || assessmentDaysInt < 1) {
+			error = 'Retention periods must be at least 1 day.';
+			return;
+		}
+
+		saving = true;
+
 		// Only PUT keys whose value changed, one call each (matches the page's
-		// existing per-key config writes). Day fields are coerced to integers so
-		// the backend's >= 1 validation sees a number.
+		// existing per-key config writes).
 		const next: Record<string, unknown> = {
 			assessment_log_retention_enabled: logEnabled,
-			assessment_log_retention_days: Math.trunc(Number(logDays)),
+			assessment_log_retention_days: logDaysInt,
 			assessment_retention_enabled: assessmentEnabled,
-			assessment_retention_days: Math.trunc(Number(assessmentDays))
+			assessment_retention_days: assessmentDaysInt
 		};
 
 		const changed = Object.entries(next).filter(([key, value]) => value !== config[key]);
