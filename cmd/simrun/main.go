@@ -115,6 +115,32 @@ func main() {
 		}
 	}()
 
+	// Retention sweepers: expire run logs and whole assessments by age. Both run
+	// once at startup and then hourly, re-reading AppConfig each tick so admin
+	// changes apply without a restart.
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		sweep := func() {
+			cfg, err := configStore.GetAppConfig(context.Background())
+			if err != nil {
+				log.Warnf("Retention sweep: failed to load config: %v", err)
+				return
+			}
+			web.SweepRunLogs(bootstrap.DataDir, cfg.AssessmentLogRetentionEnabled, cfg.AssessmentLogRetentionDays)
+			web.SweepAssessments(context.Background(), runStore, bootstrap.DataDir, cfg.AssessmentRetentionEnabled, cfg.AssessmentRetentionDays)
+		}
+		sweep()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sweep()
+			}
+		}
+	}()
+
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			log.Fatalf("Server error: %v", err)

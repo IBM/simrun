@@ -334,13 +334,10 @@ func (h *Handlers) HandleDeleteRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.runStore.Delete(r.Context(), id); err != nil {
+	if err := deleteRunWithArtifacts(r.Context(), h.runStore, h.dataDir, id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	// Clean up log file (best-effort)
-	DeleteRunLog(h.dataDir, id.String())
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -428,6 +425,16 @@ func (h *Handlers) HandleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	// Retention day fields must be >= 1 so they cannot be set to a value that
+	// deletes data immediately. Other keys keep the permissive key/value behavior.
+	if req.Key == "assessment_log_retention_days" || req.Key == "assessment_retention_days" {
+		var days int
+		if err := json.Unmarshal(req.Value, &days); err != nil || days < 1 {
+			writeError(w, http.StatusBadRequest, req.Key+" must be at least 1")
+			return
+		}
 	}
 
 	if err := h.configStore.Set(r.Context(), req.Key, req.Value); err != nil {

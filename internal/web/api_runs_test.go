@@ -2,6 +2,8 @@ package web_test
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -367,6 +369,78 @@ func TestHandleDeleteRun(t *testing.T) {
 	got, err := ts.Stores.Run.Get(ctx, id)
 	assert.Error(t, err, "expected ErrNoRows after delete")
 	assert.Nil(t, got)
+}
+
+// Deleting a run must reclaim every on-disk artifact — the JSONL log and the
+// large collected .ndjson files — not just the database row, so disk is
+// actually freed.
+func TestHandleDeleteRun_RemovesAllArtifacts(t *testing.T) {
+	ts := testserver.New(t)
+	ctx := t.Context()
+
+	id := uuid.New()
+	require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
+		ID:        id,
+		Status:    "completed",
+		StartTime: time.Now(),
+		CreatedAt: time.Now(),
+	}))
+
+	// JSONL log file.
+	w, err := web.NewRunLogWriter(ts.DataDir, id.String())
+	require.NoError(t, err)
+	w.Write(web.RunLogEntry{Level: "info", Message: "hi"})
+	require.NoError(t, w.Close())
+	jsonlPath := filepath.Join(ts.DataDir, "run-logs", id.String()+".jsonl")
+	require.FileExists(t, jsonlPath)
+
+	// Collected .ndjson artifact referenced by a scenario result.
+	ndjsonPath := filepath.Join(ts.DataDir, "collected-"+id.String()+".ndjson")
+	require.NoError(t, os.WriteFile(ndjsonPath, []byte(`{"a":1}`+"\n"), 0644))
+	require.NoError(t, ts.Stores.Run.AddScenarioResult(ctx, id, &db.ScenarioResult{
+		Name:             "s1",
+		CollectedLogPath: &ndjsonPath,
+	}))
+
+	resp := ts.Delete(t, "/api/runs/"+id.String())
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	_, err = ts.Stores.Run.Get(ctx, id)
+	assert.Error(t, err, "run row should be gone")
+	results, err := ts.Stores.Run.GetScenarioResults(ctx, id)
+	require.NoError(t, err)
+	assert.Empty(t, results, "scenario_results should be cascade-deleted")
+	assert.NoFileExists(t, jsonlPath, "JSONL log should be removed")
+	assert.NoFileExists(t, ndjsonPath, "collected .ndjson should be removed")
+}
+
+// A collected file already gone from disk must not fail the delete.
+func TestHandleDeleteRun_MissingCollectedFileStillSucceeds(t *testing.T) {
+	ts := testserver.New(t)
+	ctx := t.Context()
+
+	id := uuid.New()
+	require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
+		ID:        id,
+		Status:    "completed",
+		StartTime: time.Now(),
+		CreatedAt: time.Now(),
+	}))
+
+	// Points at a .ndjson that was never created on disk.
+	missing := filepath.Join(ts.DataDir, "gone-"+id.String()+".ndjson")
+	require.NoError(t, ts.Stores.Run.AddScenarioResult(ctx, id, &db.ScenarioResult{
+		Name:             "s1",
+		CollectedLogPath: &missing,
+	}))
+
+	resp := ts.Delete(t, "/api/runs/"+id.String())
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	_, err := ts.Stores.Run.Get(ctx, id)
+	assert.Error(t, err, "run row should be gone")
 }
 
 func TestHandleGetRunLogs_NoLogs(t *testing.T) {

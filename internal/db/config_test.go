@@ -47,32 +47,64 @@ func TestParseAppConfig_NonPositiveParallelismKeepsDefault(t *testing.T) {
 
 func TestParseAppConfig_AllSet(t *testing.T) {
 	got := parseAppConfig(map[string]json.RawMessage{
-		"parallelism":         json.RawMessage(`12`),
-		"terraform_version":   json.RawMessage(`"1.6.0"`),
-		"pack_logs_enabled":   json.RawMessage(`false`),
-		"ssh_logging_enabled": json.RawMessage(`true`),
+		"parallelism":                      json.RawMessage(`12`),
+		"terraform_version":                json.RawMessage(`"1.6.0"`),
+		"pack_logs_enabled":                json.RawMessage(`false`),
+		"ssh_logging_enabled":              json.RawMessage(`true`),
+		"assessment_log_retention_enabled": json.RawMessage(`false`),
+		"assessment_log_retention_days":    json.RawMessage(`14`),
+		"assessment_retention_enabled":     json.RawMessage(`true`),
+		"assessment_retention_days":        json.RawMessage(`90`),
 	})
 	assert.Equal(t, config.AppConfig{
-		Parallelism:       12,
-		TerraformVersion:  "1.6.0",
-		PackLogsEnabled:   false,
-		SSHLoggingEnabled: true,
+		Parallelism:                   12,
+		TerraformVersion:              "1.6.0",
+		PackLogsEnabled:               false,
+		SSHLoggingEnabled:             true,
+		AssessmentLogRetentionEnabled: false,
+		AssessmentLogRetentionDays:    14,
+		AssessmentRetentionEnabled:    true,
+		AssessmentRetentionDays:       90,
 	}, got)
+}
+
+// The retention day fields guard against non-positive values like parallelism,
+// so a stored 0/-1 cannot silently configure immediate deletion.
+func TestParseAppConfig_NonPositiveRetentionDaysKeepsDefault(t *testing.T) {
+	def := config.DefaultAppConfig()
+	for _, v := range []string{`0`, `-1`} {
+		t.Run(v, func(t *testing.T) {
+			got := parseAppConfig(map[string]json.RawMessage{
+				"assessment_log_retention_days": json.RawMessage(v),
+				"assessment_retention_days":     json.RawMessage(v),
+			})
+			assert.Equal(t, def.AssessmentLogRetentionDays, got.AssessmentLogRetentionDays)
+			assert.Equal(t, def.AssessmentRetentionDays, got.AssessmentRetentionDays)
+		})
+	}
 }
 
 func TestAppConfigKVs_MarshalsToExpectedJSON(t *testing.T) {
 	c := config.AppConfig{
-		Parallelism:       7,
-		TerraformVersion:  "1.5.7",
-		PackLogsEnabled:   true,
-		SSHLoggingEnabled: false,
+		Parallelism:                   7,
+		TerraformVersion:              "1.5.7",
+		PackLogsEnabled:               true,
+		SSHLoggingEnabled:             false,
+		AssessmentLogRetentionEnabled: true,
+		AssessmentLogRetentionDays:    7,
+		AssessmentRetentionEnabled:    false,
+		AssessmentRetentionDays:       30,
 	}
 
 	want := map[string]string{
-		"parallelism":         `7`,
-		"terraform_version":   `"1.5.7"`,
-		"pack_logs_enabled":   `true`,
-		"ssh_logging_enabled": `false`,
+		"parallelism":                      `7`,
+		"terraform_version":                `"1.5.7"`,
+		"pack_logs_enabled":                `true`,
+		"ssh_logging_enabled":              `false`,
+		"assessment_log_retention_enabled": `true`,
+		"assessment_log_retention_days":    `7`,
+		"assessment_retention_enabled":     `false`,
+		"assessment_retention_days":        `30`,
 	}
 
 	kvs := appConfigKVs(c)
@@ -89,10 +121,14 @@ func TestFakeConfigStore_UpdateGetAppConfigRoundtrip(t *testing.T) {
 	ctx := context.Background()
 
 	want := config.AppConfig{
-		Parallelism:       12,
-		TerraformVersion:  "1.6.0",
-		PackLogsEnabled:   false,
-		SSHLoggingEnabled: true,
+		Parallelism:                   12,
+		TerraformVersion:              "1.6.0",
+		PackLogsEnabled:               false,
+		SSHLoggingEnabled:             true,
+		AssessmentLogRetentionEnabled: false,
+		AssessmentLogRetentionDays:    14,
+		AssessmentRetentionEnabled:    true,
+		AssessmentRetentionDays:       90,
 	}
 	require.NoError(t, f.UpdateAppConfig(ctx, want))
 
@@ -102,6 +138,8 @@ func TestFakeConfigStore_UpdateGetAppConfigRoundtrip(t *testing.T) {
 
 	assert.Equal(t, []string{
 		"parallelism", "terraform_version", "pack_logs_enabled", "ssh_logging_enabled",
+		"assessment_log_retention_enabled", "assessment_log_retention_days",
+		"assessment_retention_enabled", "assessment_retention_days",
 	}, f.sets)
 }
 
