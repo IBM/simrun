@@ -9,14 +9,13 @@ on:
       - reopened
 
 permissions:
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
-        id: lint
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -32,35 +31,3 @@ jobs:
             ci
             chore
             revert
-
-      # Post a helpful comment when the title is invalid; remove it once fixed.
-      - if: always() && steps.lint.outputs.error_message != null
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
-        with:
-          header: pr-title-lint
-          message: |
-            ## ❗ Pull Request Naming
-
-            Your PR title doesn't follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/#summary) specification.
-
-            ### Why this matters
-            PR titles become the squash-merge commit on `main`, which `release-please` parses to compute the next version. A malformed title means no version bump.
-
-            ### Expected format
-            `<type>[(scope)][!]: <description>`
-
-            ### Examples
-            - `feat(aws): add new AWS integration`
-            - `fix: resolve memory leak in data processing`
-            - `feat(pack-sdk)!: breaking change`
-
-            ### Valid types
-            `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-
-            Details: `${{ steps.lint.outputs.error_message }}`
-
-      - if: steps.lint.outputs.error_message == null
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
-        with:
-          header: pr-title-lint
-          delete: true

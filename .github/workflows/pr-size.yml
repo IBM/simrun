@@ -15,17 +15,52 @@ jobs:
   size-label:
     runs-on: ubuntu-latest
     steps:
-      - uses: pascalgn/size-label-action@56b489b027932ec0cf60438a1a5f1a19c8fc71ff # v0.5.7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Lower-bound line counts per label, matching the reference thresholds:
-          # XS <10, S <50, M <200, L <500, XL <1000, XXL >=1000
-          sizes: >
-            {
-              "0": "XS",
-              "10": "S",
-              "50": "M",
-              "200": "L",
-              "500": "XL",
-              "1000": "XXL"
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const total = pr.additions + pr.deletions;
+            // Thresholds match the reference: XS<10, S<50, M<200, L<500, XL<1000, XXL>=1000
+            const sizes = [
+              { name: "XS",  max: 10,       color: "3CBF00" },
+              { name: "S",   max: 50,       color: "5D9801" },
+              { name: "M",   max: 200,      color: "7F7203" },
+              { name: "L",   max: 500,      color: "A14C05" },
+              { name: "XL",  max: 1000,     color: "C32607" },
+              { name: "XXL", max: Infinity, color: "E50009" },
+            ];
+            const bucket = sizes.find((s) => total < s.max);
+            const label = `size/${bucket.name}`;
+            const { owner, repo } = context.repo;
+
+            // Ensure the label exists with the desired color.
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: label });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner, repo, name: label, color: bucket.color,
+                  description: `PR size: ${bucket.name}`,
+                });
+              } else {
+                throw e;
+              }
             }
+
+            // Remove stale size/* labels, then apply the correct one.
+            const current = pr.labels
+              .map((l) => l.name)
+              .filter((n) => n.startsWith("size/"));
+            for (const name of current) {
+              if (name !== label) {
+                await github.rest.issues
+                  .removeLabel({ owner, repo, issue_number: pr.number, name })
+                  .catch(() => {});
+              }
+            }
+            if (!current.includes(label)) {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: pr.number, labels: [label],
+              });
+            }
+            core.info(`PR #${pr.number}: ${total} lines changed -> ${label}`);
