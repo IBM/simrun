@@ -34,6 +34,26 @@ func TestElasticAlertMatchesExecution(t *testing.T) {
 	assert.False(t, matches)
 }
 
+// TestAlertMatchesIndicatorsCaseInsensitive guards against providers (e.g. Azure)
+// emitting fields in a different case than the indicator. Matching must succeed
+// regardless of casing on either side; this test fails on the old case-sensitive
+// strings.Contains implementation.
+func TestAlertMatchesIndicatorsCaseInsensitive(t *testing.T) {
+	alert := ElasticSecurityDetectionAlert{
+		ID: "test-alert-1",
+		Source: map[string]interface{}{
+			"azure.resource_id": "/SUBSCRIPTIONS/ABC-123/RESOURCEGROUPS/RG",
+		},
+	}
+
+	// Indicator is lower-case, alert value is upper-case.
+	assert.True(t, alertMatchesIndicators(alert, []string{"abc-123"}))
+	// Indicator is upper-case, alert value is upper-case but differently cased.
+	assert.True(t, alertMatchesIndicators(alert, []string{"/subscriptions/abc-123/resourcegroups/rg"}))
+	// Genuinely absent value still does not match.
+	assert.False(t, alertMatchesIndicators(alert, []string{"def-456"}))
+}
+
 func TestBuildElasticAlertQuery(t *testing.T) {
 	// Test the query building method
 	assertion := &ElasticSecurityAlertGeneratedAssertion{

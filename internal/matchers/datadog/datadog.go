@@ -188,10 +188,10 @@ func (m *DatadogAlertGeneratedAssertion) findMatchingSignal(signals []datadogV2.
 
 func (m *DatadogAlertGeneratedAssertion) signalMatchesExecution(signal datadogV2.SecurityMonitoringSignal, indicators []string, logger *logrus.Entry) bool {
 	buf, _ := json.Marshal(signal.Attributes.Custom)
-	rawSignal := string(buf)
+	rawSignal := strings.ToLower(string(buf))
 
 	for _, indicator := range indicators {
-		if strings.Contains(rawSignal, indicator) {
+		if strings.Contains(rawSignal, strings.ToLower(indicator)) {
 			logger.WithField("indicator", indicator).Debug("Found matching signal based on provided indicators")
 			return true
 		}

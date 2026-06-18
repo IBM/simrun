@@ -8,6 +8,7 @@ import (
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	"github.com/IBM/simrun/internal/matchers/datadog/mocks"
 	"github.com/aws/smithy-go/ptr"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -183,4 +184,27 @@ func TestDatadog(t *testing.T) {
 		})
 	}
 
+}
+
+// TestSignalMatchesExecutionCaseInsensitive guards against providers (e.g. Azure)
+// emitting custom fields in a different case than the indicator. Matching must
+// succeed regardless of casing on either side; this test fails on the old
+// case-sensitive strings.Contains implementation.
+func TestSignalMatchesExecutionCaseInsensitive(t *testing.T) {
+	testLogger := logrus.WithFields(logrus.Fields{"matcher": "test"})
+
+	signal := datadogV2.NewSecurityMonitoringSignal()
+	signal.Id = ptr.String("1")
+	signal.Attributes = &datadogV2.SecurityMonitoringSignalAttributes{Custom: map[string]interface{}{
+		"resource_id": "/SUBSCRIPTIONS/ABC-123/RESOURCEGROUPS/RG",
+	}}
+
+	matcher := DatadogAlertGeneratedAssertion{}
+
+	// Indicator is lower-case, signal value is upper-case.
+	assert.True(t, matcher.signalMatchesExecution(*signal, []string{"abc-123"}, testLogger))
+	// Indicator is differently cased from the signal value.
+	assert.True(t, matcher.signalMatchesExecution(*signal, []string{"/subscriptions/abc-123/resourcegroups/rg"}, testLogger))
+	// Genuinely absent value still does not match.
+	assert.False(t, matcher.signalMatchesExecution(*signal, []string{"def-456"}, testLogger))
 }
