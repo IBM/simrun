@@ -292,6 +292,18 @@ var azureNoTagsResources = map[string]bool{
 	"azurerm_role_assignment":                                    true,
 	"azurerm_role_definition":                                    true,
 	"azurerm_management_lock":                                    true,
+	// Storage data-plane resources are scoped to a storage account and do
+	// not accept tags.
+	"azurerm_storage_container":                 true,
+	"azurerm_storage_blob":                      true,
+	"azurerm_storage_share":                     true,
+	"azurerm_storage_share_directory":           true,
+	"azurerm_storage_share_file":                true,
+	"azurerm_storage_queue":                     true,
+	"azurerm_storage_table":                     true,
+	"azurerm_storage_table_entity":              true,
+	"azurerm_storage_data_lake_gen2_filesystem": true,
+	"azurerm_storage_data_lake_gen2_path":       true,
 }
 
 // mergeVarTokens builds tokens for `merge(var.<name>, <existing>)`.

@@ -367,10 +367,10 @@ func CloseAlerts(api ElasticSecurityDetectionAlertsAPI, alertIDs []string, logge
 
 func alertMatchesIndicators(alert ElasticSecurityDetectionAlert, indicators []string) bool {
 	alertBytes, _ := json.Marshal(alert.Source)
-	alertString := string(alertBytes)
+	alertString := strings.ToLower(string(alertBytes))
 
 	for _, indicator := range indicators {
-		if strings.Contains(alertString, indicator) {
+		if strings.Contains(alertString, strings.ToLower(indicator)) {
 			return true
 		}
 	}

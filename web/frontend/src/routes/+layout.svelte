@@ -108,8 +108,10 @@
 					</DropdownMenu.Root>
 				</div>
 			</header>
-			<main class="flex-1 p-6 min-w-0">
-				{@render children()}
+			<main class="flex-1 min-w-0">
+				<div class="mx-auto w-full max-w-[1536px] p-6">
+					{@render children()}
+				</div>
 			</main>
 		</SidebarUI.SidebarInset>
 	</SidebarUI.SidebarProvider>

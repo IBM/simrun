@@ -123,10 +123,16 @@ func ClientOptions(ctx context.Context) ([]option.ClientOption, error) {
 		opts = append(opts, option.WithUserAgent(pack.UserAgent(executionID)))
 	}
 
-	// Check for inline credentials JSON
+	// Check for inline credentials JSON. GOOGLE_CREDENTIALS may hold either a
+	// service_account key (legacy) or an external_account config (Workload
+	// Identity Federation), so detect the type rather than forcing one.
 	if credsJSON := os.Getenv("GOOGLE_CREDENTIALS"); credsJSON != "" {
+		credType, err := credentialsType(credsJSON)
+		if err != nil {
+			return nil, fmt.Errorf("detect GCP credential type: %w", err)
+		}
 		creds, err := google.CredentialsFromJSONWithTypeAndParams(ctx, []byte(credsJSON),
-			google.ServiceAccount,
+			credType,
 			google.CredentialsParams{Scopes: []string{"https://www.googleapis.com/auth/cloud-platform"}},
 		)
 		if err != nil {
@@ -139,6 +145,32 @@ func ClientOptions(ctx context.Context) ([]option.ClientOption, error) {
 	// GOOGLE_APPLICATION_CREDENTIALS is handled automatically by the SDK
 	// Use Application Default Credentials
 	return opts, nil
+}
+
+// credentialsType inspects the "type" field of a GCP credentials JSON document
+// and returns the matching CredentialsType. It supports service_account keys,
+// external_account (Workload Identity Federation) configs, and authorized_user
+// credentials. The credentials are produced by the simrun credential resolver,
+// not an untrusted source.
+func credentialsType(credsJSON string) (google.CredentialsType, error) {
+	var doc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal([]byte(credsJSON), &doc); err != nil {
+		return "", fmt.Errorf("invalid GCP credentials JSON: %w", err)
+	}
+	switch doc.Type {
+	case string(google.ServiceAccount):
+		return google.ServiceAccount, nil
+	case string(google.ExternalAccount):
+		return google.ExternalAccount, nil
+	case string(google.AuthorizedUser):
+		return google.AuthorizedUser, nil
+	case "":
+		return "", fmt.Errorf("missing credential type in GCP credentials JSON")
+	default:
+		return "", fmt.Errorf("unsupported GCP credential type %q", doc.Type)
+	}
 }
 
 // ImpersonateServiceAccount returns a client option that uses impersonated credentials
