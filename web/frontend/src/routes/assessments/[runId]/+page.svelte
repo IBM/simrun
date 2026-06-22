@@ -191,7 +191,7 @@
 								<FileTextIcon class="h-3.5 w-3.5 shrink-0" />
 								{#if scenarioName}
 									<a
-										href="/scenarios"
+										href={`/scenarios/${$currentRun.scenarioId}`}
 										class="text-foreground hover:underline underline-offset-2 truncate max-w-[240px]"
 									>
 										{scenarioName}
