@@ -3,6 +3,7 @@
 	import { page as pageStore } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -249,7 +250,6 @@
 	async function handleDelete() {
 		if (!deleteTarget) return;
 		deleting = true;
-		error = '';
 		try {
 			await deleteScenario(deleteTarget.id);
 			// If deleting the last row on a page > 1 leaves it empty, step back.
@@ -258,10 +258,11 @@
 				syncUrl();
 			}
 			await Promise.all([load(), loadScheduleMap()]);
+			toast.success('Scenario deleted');
 			deleteDialogOpen = false;
 			deleteTarget = null;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Delete failed';
+			toast.error(e instanceof Error ? e.message : 'Delete failed');
 		} finally {
 			deleting = false;
 		}

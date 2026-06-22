@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page as pageStore } from '$app/stores';
+	import { toast } from 'svelte-sonner';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -278,7 +279,6 @@
 	async function handleDelete() {
 		if (!deleteTarget) return;
 		deleting = true;
-		error = '';
 		try {
 			await deleteRun(deleteTarget.id);
 			// If deleting the last row on a page > 1 leaves it empty, step back.
@@ -286,10 +286,11 @@
 				page--;
 			}
 			await load();
+			toast.success('Assessment deleted');
 			deleteDialogOpen = false;
 			deleteTarget = null;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Delete failed';
+			toast.error(e instanceof Error ? e.message : 'Delete failed');
 		} finally {
 			deleting = false;
 		}

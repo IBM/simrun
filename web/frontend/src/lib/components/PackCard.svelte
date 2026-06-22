@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import type { Pack, PackManifest } from '$lib/types';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -51,9 +52,10 @@
 		try {
 			await deletePack(pack.name);
 			deleteDialogOpen = false;
+			toast.success('Pack deleted');
 			ondelete?.();
-		} catch {
-			// delete failed silently
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : 'Delete failed');
 		} finally {
 			deleting = false;
 		}

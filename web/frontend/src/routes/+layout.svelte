@@ -45,7 +45,7 @@
 </script>
 
 <ModeWatcher defaultMode="dark" />
-<Toaster richColors closeButton position="top-right" />
+<Toaster richColors closeButton position="top-center" />
 
 {#if $page.url.pathname === '/login'}
 	{@render children()}
