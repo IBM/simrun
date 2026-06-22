@@ -81,7 +81,10 @@ func (m *Runner) runScenario(scenario *Scenario) (string, float64, error) {
 
 	executionOutput, logger, err := m.executeScenario(scenario)
 	if err != nil {
-		return "", 0, err
+		// Preserve the execution_id even on failure so a partially-completed
+		// detonation (e.g. terraform applied, detonation timed out) stays
+		// correlatable. Indexing a nil map yields "".
+		return executionOutput["execution_id"], 0, err
 	}
 
 	indicators := m.buildIndicatorsList(scenario, executionOutput)

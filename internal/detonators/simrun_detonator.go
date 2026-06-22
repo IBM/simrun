@@ -99,12 +99,17 @@ func (d *SimrunDetonator) Detonate() (map[string]string, error) {
 		return nil, fmt.Errorf("failed to generate execution ID: %w", err)
 	}
 
+	// Carry execution_id out on every failure path past this point so a
+	// partially-completed detonation (e.g. terraform applied, then the
+	// detonation timed out) stays correlatable in the persisted result.
+	failure := map[string]string{"execution_id": executionID}
+
 	d.setupLoggingAndTerraform(executionID)
 
 	// Get manifest and find simulation
 	simulation, err := d.resolveSimulation(ctx)
 	if err != nil {
-		return nil, err
+		return failure, err
 	}
 
 	d.logSimulationInfo(simulation)
@@ -115,7 +120,7 @@ func (d *SimrunDetonator) Detonate() (map[string]string, error) {
 	}
 	terraformOutputs, tfWorkDir, err := d.setupTerraform(ctx, executionID, simulation)
 	if err != nil {
-		return nil, err
+		return failure, err
 	}
 	if tfWorkDir != "" {
 		defer d.cleanupTerraform(ctx, executionID, tfWorkDir)
@@ -125,7 +130,7 @@ func (d *SimrunDetonator) Detonate() (map[string]string, error) {
 	d.reportPhase("detonating")
 	detonateOutput, err := d.executeSimulation(ctx, executionID, terraformOutputs)
 	if err != nil {
-		return nil, err
+		return failure, err
 	}
 
 	// Run custom cleanup if needed
@@ -215,6 +220,38 @@ func (d *SimrunDetonator) terraformEnvVars(executionID string) map[string]string
 		vars[fmt.Sprintf("TF_VAR_%s", k)] = formatTFVar(v)
 	}
 	return vars
+}
+
+// detonationEnvVars returns the environment for the pack runner. It augments
+// the run env with AWS_REGION/AWS_DEFAULT_REGION derived from the resolved
+// aws_region parameter. Terraform pins the AWS provider to var.aws_region, but
+// the detonation resolves region via the AWS SDK default chain (ambient
+// AWS_REGION). Without aligning them, terraform creates resources in
+// var.aws_region (default us-east-1) while the detonation acts on the
+// container's ambient region — producing NotFound errors. envutil merges this
+// map over the process env, so the value here wins over any ambient AWS_REGION.
+func (d *SimrunDetonator) detonationEnvVars() map[string]string {
+	env := make(map[string]string, len(d.envVars)+2)
+	for k, v := range d.envVars {
+		env[k] = v
+	}
+	region := d.resolveAWSRegion()
+	env["AWS_REGION"] = region
+	env["AWS_DEFAULT_REGION"] = region
+	return env
+}
+
+// resolveAWSRegion resolves the AWS region the detonation should use, mirroring
+// the precedence terraformEnvVars applies to TF_VAR_aws_region: per-sim
+// scenario param > pack-level param > built-in default.
+func (d *SimrunDetonator) resolveAWSRegion() string {
+	if r, ok := d.params["aws_region"].(string); ok && r != "" {
+		return r
+	}
+	if r, ok := d.packConfig.Parameters["aws_region"].(string); ok && r != "" {
+		return r
+	}
+	return pack.DefaultAWSRegion
 }
 
 // formatTFVar renders a parameter value into the string form Terraform
@@ -398,7 +435,7 @@ func (d *SimrunDetonator) logSimulationInfo(simulation *pack.SimulationManifest)
 
 // createExecutor creates a pack runner and executor for simulation execution
 func (d *SimrunDetonator) createExecutor(ctx context.Context, executionID string) (*executor.Executor, runner.PackRunner, error) {
-	packRunner, err := d.runnerFactory.CreateRunner(ctx, d.packConfig, d.envVars)
+	packRunner, err := d.runnerFactory.CreateRunner(ctx, d.packConfig, d.detonationEnvVars())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create pack runner: %w", err)
 	}
