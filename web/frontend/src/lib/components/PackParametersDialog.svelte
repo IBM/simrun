@@ -55,7 +55,38 @@
 		}
 	}
 
+	// Reject string-map params (e.g. default_tags) that contain blank keys or
+	// values. Terraform/cloud providers can't apply empty tag keys or values,
+	// so saving them silently breaks every sim in the pack. Returns per-field
+	// error messages keyed by param name.
+	function validateMapParams(): Record<string, string> {
+		const errs: Record<string, string> = {};
+		const props =
+			(schema?.properties as
+				| Record<string, { type?: string; additionalProperties?: { type?: string } }>
+				| undefined) ?? {};
+		for (const [name, prop] of Object.entries(props)) {
+			if (prop?.type !== 'object' || prop.additionalProperties?.type !== 'string') continue;
+			const map = values[name];
+			if (!map || typeof map !== 'object') continue;
+			for (const [k, v] of Object.entries(map as Record<string, unknown>)) {
+				if (k.trim() === '' || typeof v !== 'string' || v.trim() === '') {
+					errs[name] = 'Keys and values cannot be empty — remove or fill blank entries.';
+					break;
+				}
+			}
+		}
+		return errs;
+	}
+
 	async function handleSave() {
+		const mapErrors = validateMapParams();
+		if (Object.keys(mapErrors).length > 0) {
+			fieldErrors = mapErrors;
+			error = 'Tag keys and values cannot be empty.';
+			return;
+		}
+
 		saving = true;
 		error = '';
 		fieldErrors = {};
@@ -94,12 +125,7 @@
 			<p class="text-sm text-muted-foreground">Loading...</p>
 		{:else}
 			<div class="space-y-4">
-				<SchemaForm
-					{schema}
-					{values}
-					errors={fieldErrors}
-					onchange={(next) => (values = next)}
-				/>
+				<SchemaForm {schema} {values} errors={fieldErrors} onchange={(next) => (values = next)} />
 
 				{#if unknownKeysFromServer.length > 0}
 					<Alert.Root>
