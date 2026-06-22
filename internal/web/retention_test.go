@@ -122,3 +122,96 @@ func TestSweepAssessments_DisabledIsNoOp(t *testing.T) {
 	assert.FileExists(t, jsonl)
 	assert.FileExists(t, ndjson)
 }
+
+// seedTerraformDir creates <dataDir>/terraform/<execID>/ with nested state and
+// plugin contents, mirroring a real Terraform working directory so removal must
+// recurse (os.RemoveAll), not a flat os.Remove.
+func seedTerraformDir(t *testing.T, dataDir, execID string) string {
+	t.Helper()
+	dir := filepath.Join(dataDir, "terraform", execID)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".terraform"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "terraform.tfstate"), []byte("{}"), 0o644))
+	return dir
+}
+
+// makeAgedRunWithExecutions creates an aged completed run whose scenario results
+// carry the given execution IDs (one result per ID), returning the run ID.
+func makeAgedRunWithExecutions(t *testing.T, ctx context.Context, store *fakes.RunStore, dataDir string, execIDs ...string) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	created := time.Now().AddDate(0, 0, -40)
+	require.NoError(t, store.Create(ctx, &db.Run{
+		ID:        id,
+		Status:    "completed",
+		StartTime: created,
+		CreatedAt: created,
+	}))
+	writeLog(t, dataDir, id.String(), 40)
+	for i, execID := range execIDs {
+		require.NoError(t, store.AddScenarioResult(ctx, id, &db.ScenarioResult{
+			Name:        "s" + uuid.NewString()[:4] + "-" + string(rune('a'+i)),
+			ExecutionID: execID,
+		}))
+	}
+	return id
+}
+
+// Deleting a run reclaims the per-execution Terraform working directory for each
+// of its scenario results — the disk space these dirs hold is the whole point.
+func TestSweepAssessments_RemovesTerraformDirs(t *testing.T) {
+	dataDir := t.TempDir()
+	store := fakes.New().Run
+	ctx := context.Background()
+
+	e1, e2 := uuid.NewString(), uuid.NewString()
+	id := makeAgedRunWithExecutions(t, ctx, store, dataDir, e1, e2)
+	dir1 := seedTerraformDir(t, dataDir, e1)
+	dir2 := seedTerraformDir(t, dataDir, e2)
+
+	web.SweepAssessments(ctx, store, dataDir, true, 30)
+
+	_, err := store.Get(ctx, id)
+	assert.Error(t, err, "aged run row should be deleted")
+	assert.NoDirExists(t, dir1, "Terraform dir for E1 should be removed")
+	assert.NoDirExists(t, dir2, "Terraform dir for E2 should be removed")
+}
+
+// An unsafe execution_id must never cause cleanup to escape or wipe the
+// terraform/ base directory — a blank id would otherwise RemoveAll the base.
+func TestSweepAssessments_SkipsUnsafeExecutionID(t *testing.T) {
+	for _, execID := range []string{"", "   ", "../escape", "nested/id"} {
+		t.Run("id="+execID, func(t *testing.T) {
+			dataDir := t.TempDir()
+			store := fakes.New().Run
+			ctx := context.Background()
+
+			// A sibling dir keyed on a safe id proves only the unsafe id is skipped.
+			safe := uuid.NewString()
+			id := makeAgedRunWithExecutions(t, ctx, store, dataDir, execID, safe)
+			safeDir := seedTerraformDir(t, dataDir, safe)
+			base := filepath.Join(dataDir, "terraform")
+
+			web.SweepAssessments(ctx, store, dataDir, true, 30)
+
+			_, err := store.Get(ctx, id)
+			assert.Error(t, err, "aged run row should still be deleted")
+			assert.DirExists(t, base, "terraform base dir must survive an unsafe id")
+			assert.NoDirExists(t, safeDir, "the safe sibling id should still be cleaned up")
+		})
+	}
+}
+
+// A missing Terraform dir must not fail the delete — removal is best-effort.
+func TestSweepAssessments_MissingTerraformDirIsBestEffort(t *testing.T) {
+	dataDir := t.TempDir()
+	store := fakes.New().Run
+	ctx := context.Background()
+
+	// No terraform dir is seeded for this execution id.
+	id := makeAgedRunWithExecutions(t, ctx, store, dataDir, uuid.NewString())
+
+	web.SweepAssessments(ctx, store, dataDir, true, 30)
+
+	_, err := store.Get(ctx, id)
+	assert.Error(t, err, "delete should succeed even though the Terraform dir was missing")
+}
