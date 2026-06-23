@@ -132,7 +132,13 @@
 					<!-- Drill-down: Simulation Detail -->
 					<div class="px-6 pt-6 pb-4 border-b border-border">
 						<div class="flex items-center gap-2 mb-3">
-							<Button variant="ghost" size="sm" class="h-7 w-7 p-0" onclick={backToList} aria-label="Back to list">
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-7 w-7 p-0"
+								onclick={backToList}
+								aria-label="Back to list"
+							>
 								<ArrowLeftIcon class="size-4" />
 							</Button>
 							<span class="text-xs text-muted-foreground">Back to list</span>
@@ -323,7 +329,13 @@
 					<!-- Drill-down: Template Detail -->
 					<div class="px-6 pt-6 pb-4 border-b border-border">
 						<div class="flex items-center gap-2 mb-3">
-							<Button variant="ghost" size="sm" class="h-7 w-7 p-0" onclick={backToList} aria-label="Back to list">
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-7 w-7 p-0"
+								onclick={backToList}
+								aria-label="Back to list"
+							>
 								<ArrowLeftIcon class="size-4" />
 							</Button>
 							<span class="text-xs text-muted-foreground">Back to list</span>

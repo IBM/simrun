@@ -37,7 +37,10 @@
 	const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 	// Per-severity token classes — drives the breakdown bars, row accents and chips.
-	const severityClasses: Record<Severity, { text: string; bar: string; accent: string; chip: string }> = {
+	const severityClasses: Record<
+		Severity,
+		{ text: string; bar: string; accent: string; chip: string }
+	> = {
 		critical: {
 			text: 'text-status-error',
 			bar: 'bg-status-error',
@@ -161,7 +164,11 @@
 	const endIndex = $derived(Math.min(coveragePage * PER_PAGE, filteredRules.length));
 
 	const coverageFilterLabel = $derived(
-		coverageFilter === 'all' ? 'All Rules' : coverageFilter === 'covered' ? 'Covered' : 'Not Covered'
+		coverageFilter === 'all'
+			? 'All Rules'
+			: coverageFilter === 'covered'
+				? 'Covered'
+				: 'Not Covered'
 	);
 
 	const severityFilterLabel = $derived(
@@ -237,7 +244,9 @@
 					</span>
 					<div class="flex flex-wrap items-baseline gap-x-5 gap-y-1">
 						<span class="inline-flex items-baseline gap-1.5">
-							<span class="font-mono text-base font-bold leading-none">{data.summary.totalRules}</span>
+							<span class="font-mono text-base font-bold leading-none"
+								>{data.summary.totalRules}</span
+							>
 							<span class="text-xs text-muted-foreground">rules</span>
 						</span>
 						<span class="inline-flex items-baseline gap-1.5">
@@ -299,8 +308,8 @@
 				<ShieldAlertIcon class="h-4 w-4 shrink-0 text-status-error" />
 				<span>
 					<span class="font-mono font-semibold">{highSevGaps}</span>
-					critical &amp; high-severity rule{highSevGaps === 1 ? '' : 's'} have no simulation coverage —
-					your most important gaps.
+					critical &amp; high-severity rule{highSevGaps === 1 ? '' : 's'} have no simulation coverage
+					— your most important gaps.
 				</span>
 			</div>
 		{/if}
@@ -355,9 +364,14 @@
 					<Table.Row>
 						<Table.Head class="w-8"></Table.Head>
 						<Table.Head>
-							<Button variant="ghost" size="sm" class="-ml-3 h-8" onclick={() => toggleSort('name')}>
+							<Button
+								variant="ghost"
+								size="sm"
+								class="-ml-3 h-8"
+								onclick={() => toggleSort('name')}
+							>
 								Rule Name
-								<ArrowUpDownIcon class="ml-1 h-4 w-4" />
+								<ArrowUpDownIcon data-icon="inline-end" />
 							</Button>
 						</Table.Head>
 						<Table.Head>
@@ -368,7 +382,7 @@
 								onclick={() => toggleSort('severity')}
 							>
 								Severity
-								<ArrowUpDownIcon class="ml-1 h-4 w-4" />
+								<ArrowUpDownIcon data-icon="inline-end" />
 							</Button>
 						</Table.Head>
 						<Table.Head>Tags</Table.Head>
@@ -414,18 +428,26 @@
 							</Table.Cell>
 							<Table.Cell>
 								{#if rule.covered}
-									<span class="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-status-success">
+									<span
+										class="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-status-success"
+									>
 										<span class="h-1.5 w-1.5 rounded-full bg-status-success"></span>
 										Covered
 									</span>
 								{:else}
-									<span class="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+									<span
+										class="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground"
+									>
 										<span class="h-1.5 w-1.5 rounded-full bg-muted-foreground/40"></span>
 										Not covered
 									</span>
 								{/if}
 							</Table.Cell>
-							<Table.Cell class="font-mono text-xs {rule.scenarios.length === 0 ? 'text-muted-foreground' : ''}">
+							<Table.Cell
+								class="font-mono text-xs {rule.scenarios.length === 0
+									? 'text-muted-foreground'
+									: ''}"
+							>
 								{rule.scenarios.length}
 							</Table.Cell>
 							<Table.Cell>

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Pagination as PaginationPrimitive } from "bits-ui";
-	import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
-	import { buttonVariants } from "$lib/components/ui/button/index.js";
-	import { cn } from "$lib/utils.js";
+	import { Pagination as PaginationPrimitive } from 'bits-ui';
+	import { cn } from '$lib/utils.js';
+	import { buttonVariants } from '$lib/components/ui/button/index.js';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 
 	let {
 		ref = $bindable(null),
@@ -14,16 +14,9 @@
 <PaginationPrimitive.PrevButton
 	bind:ref
 	aria-label="Go to previous page"
-	class={cn(
-		buttonVariants({
-			size: "default",
-			variant: "ghost",
-			class: "gap-1 px-2.5 sm:ps-2.5",
-		}),
-		className
-	)}
+	class={cn(buttonVariants({ variant: 'ghost', size: 'default' }), 'pl-1.5!', className)}
 	{...restProps}
 >
-	<ChevronLeftIcon />
-	<span class="hidden sm:block">Previous</span></PaginationPrimitive.PrevButton
->
+	<ChevronLeftIcon data-icon="inline-start" />
+	<span class="cn-pagination-previous-text hidden sm:block">Previous</span>
+</PaginationPrimitive.PrevButton>

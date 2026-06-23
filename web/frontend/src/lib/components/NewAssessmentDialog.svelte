@@ -81,7 +81,6 @@
 			running = false;
 		}
 	}
-
 </script>
 
 <Dialog.Root bind:open>
@@ -185,8 +184,8 @@
 					<div class="rounded-md border border-border bg-muted/30 p-3">
 						<p class="text-xs text-muted-foreground">
 							{#if selectedScenarioType === 'explore'}
-								Explore mode: searches all alerts for indicators instead of matching specific
-								rules. Waits for the full timeout to discover all triggered alerts.
+								Explore mode: searches all alerts for indicators instead of matching specific rules.
+								Waits for the full timeout to discover all triggered alerts.
 							{:else}
 								Collect mode: collects logs after detonation for analysis. Waits for the timeout
 								period before collecting.

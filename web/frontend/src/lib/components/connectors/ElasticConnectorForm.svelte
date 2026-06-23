@@ -87,9 +87,7 @@
 			{/each}
 		</Select.Content>
 	</Select.Root>
-	<p class="text-xs text-muted-foreground">
-		Select a secret group containing SR_ELASTIC_API_KEY
-	</p>
+	<p class="text-xs text-muted-foreground">Select a secret group containing SR_ELASTIC_API_KEY</p>
 </div>
 <div class="space-y-2">
 	<Label for={kibanaId}>Kibana URL</Label>
@@ -127,11 +125,7 @@
 	{#if fields.exportEnabled}
 		<div class="space-y-2">
 			<Label for={datastreamId}>Datastream</Label>
-			<Input
-				id={datastreamId}
-				placeholder="asp.results"
-				bind:value={fields.exportDatastream}
-			/>
+			<Input id={datastreamId} placeholder="asp.results" bind:value={fields.exportDatastream} />
 			<p class="text-xs text-muted-foreground">
 				Results will be indexed to:
 				<span class="font-mono">logs-{fields.exportDatastream || 'asp.results'}-default</span>

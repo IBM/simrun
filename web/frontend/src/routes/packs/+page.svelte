@@ -177,7 +177,9 @@
 			</Tabs.List>
 			{#if activeTab === 'installed' && !loading && $packs.length > 0}
 				<div class="relative w-full sm:w-64">
-					<SearchIcon class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+					<SearchIcon
+						class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
 					<Input placeholder="Filter packs..." class="pl-9" bind:value={filterQuery} />
 				</div>
 			{/if}

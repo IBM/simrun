@@ -28,7 +28,8 @@
 		{
 			value: 'explore',
 			title: 'Explore',
-			description: 'Run simulations and discover all triggered alerts without specifying expected rules.',
+			description:
+				'Run simulations and discover all triggered alerts without specifying expected rules.',
 			icon: SearchIcon,
 			iconClass: 'text-attr-identity'
 		},

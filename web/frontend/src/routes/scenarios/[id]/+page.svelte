@@ -312,22 +312,22 @@
 					class="text-muted-foreground hover:text-destructive"
 					onclick={() => (deleteDialogOpen = true)}
 				>
-					<TrashIcon class="h-4 w-4 mr-1.5" />
+					<TrashIcon data-icon="inline-start" />
 					Delete
 				</Button>
 				<Button variant="outline" size="sm" onclick={() => (scheduleDialogOpen = true)}>
-					<CalendarIcon class="h-4 w-4 mr-1.5" />
+					<CalendarIcon data-icon="inline-start" />
 					{schedule ? 'Schedule' : 'Set schedule'}
 				</Button>
 				<Button variant="outline" size="sm" onclick={() => goto(`/scenarios/${scenario!.id}/edit`)}>
-					<PenLineIcon class="h-4 w-4 mr-1.5" />
+					<PenLineIcon data-icon="inline-start" />
 					Edit
 				</Button>
 				<Button size="sm" onclick={handleRun} disabled={running}>
 					{#if running}
-						<LoaderIcon class="h-4 w-4 mr-1.5 animate-spin" />
+						<LoaderIcon data-icon="inline-start" class="animate-spin" />
 					{:else}
-						<PlayIcon class="h-4 w-4 mr-1.5" />
+						<PlayIcon data-icon="inline-start" />
 					{/if}
 					Run
 				</Button>
@@ -378,9 +378,7 @@
 							<ul class="space-y-1.5">
 								{#each packsUsed as p}
 									<li class="flex items-center gap-2 text-sm">
-										<span
-											class="h-1 w-1 rounded-full bg-primary/60 shrink-0"
-											aria-hidden="true"
+										<span class="h-1 w-1 rounded-full bg-primary/60 shrink-0" aria-hidden="true"
 										></span>
 										<span class="font-mono text-foreground/90 truncate">{p}</span>
 									</li>
@@ -419,7 +417,9 @@
 					</div>
 				</div>
 			{:else}
-				<div class="rounded-lg border border-dashed bg-card/40 px-5 py-4 text-sm text-muted-foreground">
+				<div
+					class="rounded-lg border border-dashed bg-card/40 px-5 py-4 text-sm text-muted-foreground"
+				>
 					This scenario uses a detonator type that isn't introspected. Review the source below.
 				</div>
 			{/if}

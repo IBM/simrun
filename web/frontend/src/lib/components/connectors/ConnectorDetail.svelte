@@ -50,8 +50,7 @@
 		azure: { 'Cloud Target': 'Used as a detonation target for Azure attack simulations' },
 		kubernetes: { 'K8s Target': 'Used as a detonation target for Kubernetes attack simulations' },
 		ssh: {
-			'Remote Command Detonation':
-				'Execute shell commands on a remote host over SSH for detonation'
+			'Remote Command Detonation': 'Execute shell commands on a remote host over SSH for detonation'
 		}
 	};
 
@@ -69,7 +68,12 @@
 	}
 </script>
 
-<Sheet.Root {open} onOpenChange={(v) => { if (!v) onClose(); }}>
+<Sheet.Root
+	{open}
+	onOpenChange={(v) => {
+		if (!v) onClose();
+	}}
+>
 	<Sheet.Content side="right" class="w-full p-0 sm:max-w-lg">
 		{#if connector}
 			{@const c = connector}
@@ -106,7 +110,9 @@
 					<div class="space-y-6 px-6 py-5">
 						{#if c.description}
 							<div>
-								<h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+								<h4
+									class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+								>
 									Description
 								</h4>
 								<p class="text-sm leading-relaxed text-foreground/90">{c.description}</p>
@@ -128,12 +134,14 @@
 								{#if c.type === 'elastic'}
 									<div class="grid grid-cols-[130px_1fr] gap-2">
 										<span class="font-medium text-muted-foreground">Kibana URL</span>
-										<span class="break-all font-mono text-xs">{getElasticConfig(c).kibana_url}</span>
+										<span class="break-all font-mono text-xs">{getElasticConfig(c).kibana_url}</span
+										>
 									</div>
 									{#if getElasticConfig(c).cloud_id}
 										<div class="grid grid-cols-[130px_1fr] gap-2">
 											<span class="font-medium text-muted-foreground">Cloud ID</span>
-											<span class="break-all font-mono text-xs">{getElasticConfig(c).cloud_id}</span>
+											<span class="break-all font-mono text-xs">{getElasticConfig(c).cloud_id}</span
+											>
 										</div>
 									{/if}
 									{#if getElasticConfig(c).elasticsearch_url}
@@ -150,7 +158,8 @@
 											{#if getElasticConfig(c).export_enabled}
 												<Badge variant="default">Enabled</Badge>
 												<span class="ml-2 font-mono text-xs"
-													>logs-{getElasticConfig(c).export_datastream || 'asp.results'}-default</span
+													>logs-{getElasticConfig(c).export_datastream ||
+														'asp.results'}-default</span
 												>
 											{:else}
 												<Badge variant="secondary">Disabled</Badge>

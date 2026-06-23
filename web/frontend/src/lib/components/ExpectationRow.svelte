@@ -111,7 +111,7 @@
 								aria-expanded={alertNameComboboxOpen}
 							>
 								<span class="truncate">{alertNameLabel()}</span>
-								<ChevronsUpDownIcon class="ml-2 shrink-0 opacity-50" size={16} />
+								<ChevronsUpDownIcon data-icon="inline-end" class="opacity-50" />
 							</Button>
 						{/snippet}
 					</Popover.Trigger>
