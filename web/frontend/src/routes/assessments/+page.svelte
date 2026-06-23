@@ -449,13 +449,7 @@
 							class="cursor-pointer hover:bg-accent/50 transition-colors"
 							onclick={() => goto(`/assessments/${run.id}`)}
 						>
-							<Table.Cell
-								class="border-l-2 font-mono text-xs {run.status === 'running'
-									? 'border-l-status-processing'
-									: run.status === 'failed'
-										? 'border-l-status-error'
-										: 'border-l-status-success'}"
-							>
+							<Table.Cell class="font-mono text-xs">
 								{run.id.slice(0, 8)}
 							</Table.Cell>
 							<Table.Cell>
@@ -499,9 +493,7 @@
 										<span class="font-mono text-xs whitespace-nowrap">
 											<span class="font-medium text-status-success">{run.succeeded}</span><span
 												class="text-muted-foreground">/{run.total}</span
-											>{#if run.failed > 0}<span class="text-status-error">
-													·{run.failed}</span
-												>{/if}
+											>
 										</span>
 									</div>
 								{:else}
