@@ -29,7 +29,7 @@
 
 - [x] 5.1 `npm run check` passes with no new errors attributable to the migration.
 - [x] 5.2 `mise run build` (frontend + server) succeeds.
-- [ ] 5.3 Visual pass in light AND dark on: dashboard, assessments list, assessment detail, rule coverage, connectors, scenarios, packs — confirm buttons (incl. `destructive`), badges, inputs, tables render with intended emphasis and correct spacing.
+- [x] 5.3 Visual pass in light AND dark on: dashboard, assessments list, assessment detail, rule coverage, connectors, scenarios, packs — confirm buttons (incl. `destructive`), badges, inputs, tables render with intended emphasis and correct spacing.
 - [x] 5.4 Confirm a clean `add`/`update --overwrite` of one already-installed component now leaves the rest of the library unchanged (validates the migration goal).
 - [x] 5.5 Update the project memory note that previously flagged `--overwrite` as incompatible to reflect the new baseline.
 
