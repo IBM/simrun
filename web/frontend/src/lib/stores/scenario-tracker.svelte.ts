@@ -69,7 +69,9 @@ export class ScenarioTracker {
 			if (s.status === 'completed' && s.isSuccess !== null) {
 				updated[s.name] = { name: s.name, status: 'completed', result: s };
 			} else {
-				updated[s.name] = { name: s.name, status: s.status, phase: s.phase };
+				// Carry the partial result for running/pending rows too, so the UI
+				// can surface mid-run executor identity and incremental assertions.
+				updated[s.name] = { name: s.name, status: s.status, phase: s.phase, result: s };
 			}
 		}
 		this.entries = updated;

@@ -6,6 +6,7 @@ import (
 	"github.com/IBM/simrun/internal/db"
 	"github.com/IBM/simrun/internal/matchers"
 	"github.com/IBM/simrun/internal/results"
+	"github.com/IBM/simrun/internal/runner"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,6 +17,30 @@ type assertionDTO struct {
 	MatcherType string `json:"matcherType"`
 	AlertName   string `json:"alertName"`
 	Passed      bool   `json:"passed"`
+}
+
+// partialAssertionDTO is the mid-run counterpart of assertionDTO: a pending
+// (not-yet-matched) assertion omits `passed` so the frontend renders it muted
+// rather than as a failure. The terminal write uses assertionDTO (passed always
+// present) instead.
+type partialAssertionDTO struct {
+	MatcherType string `json:"matcherType"`
+	AlertName   string `json:"alertName"`
+	Passed      *bool  `json:"passed,omitempty"`
+}
+
+// buildPartialAssertionsJSON marshals the runner's mid-run assertion state into
+// the same wire shape as buildScenarioResultRow, preserving pending vs passed.
+func buildPartialAssertionsJSON(results []runner.AssertionResult) ([]byte, error) {
+	dtos := make([]partialAssertionDTO, 0, len(results))
+	for _, r := range results {
+		dtos = append(dtos, partialAssertionDTO{
+			MatcherType: r.MatcherType,
+			AlertName:   r.AlertName,
+			Passed:      r.Passed,
+		})
+	}
+	return json.Marshal(dtos)
 }
 
 // buildScenarioResultRow projects an in-memory scenario result into the

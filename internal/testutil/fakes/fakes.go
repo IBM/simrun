@@ -228,6 +228,31 @@ func (s *RunStore) UpdateScenarioPhase(_ context.Context, id uuid.UUID, phase st
 	return nil
 }
 
+func (s *RunStore) UpdateScenarioIdentity(_ context.Context, id uuid.UUID, executorName, executorType, executionID, simulationID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.results[id]
+	if !ok {
+		return pgx.ErrNoRows
+	}
+	r.ExecutorName = executorName
+	r.ExecutorType = executorType
+	r.ExecutionID = executionID
+	r.SimulationID = simulationID
+	return nil
+}
+
+func (s *RunStore) UpdateScenarioAssertions(_ context.Context, id uuid.UUID, assertionsJSON []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.results[id]
+	if !ok {
+		return pgx.ErrNoRows
+	}
+	r.Assertions = assertionsJSON
+	return nil
+}
+
 func (s *RunStore) CompleteScenarioResult(_ context.Context, id uuid.UUID, result *db.ScenarioResult) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

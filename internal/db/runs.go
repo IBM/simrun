@@ -31,6 +31,12 @@ type RunStore interface {
 	// Scenario status tracking
 	CreateScenarioStatus(ctx context.Context, runID uuid.UUID, name string) (uuid.UUID, error)
 	UpdateScenarioPhase(ctx context.Context, id uuid.UUID, phase string) error
+	// UpdateScenarioIdentity records executor identity mid-run (after detonation),
+	// touching only the identity columns and leaving status/phase untouched.
+	UpdateScenarioIdentity(ctx context.Context, id uuid.UUID, executorName, executorType, executionID, simulationID string) error
+	// UpdateScenarioAssertions persists partial assertion results mid-run,
+	// touching only the assertions column and leaving status/phase untouched.
+	UpdateScenarioAssertions(ctx context.Context, id uuid.UUID, assertionsJSON []byte) error
 	CompleteScenarioResult(ctx context.Context, id uuid.UUID, result *ScenarioResult) error
 	IncrementRunCounters(ctx context.Context, id uuid.UUID, successDelta, failDelta int) error
 
@@ -333,6 +339,22 @@ func (s *runStore) UpdateScenarioPhase(ctx context.Context, id uuid.UUID, phase 
 	_, err := s.pool.Exec(ctx,
 		`UPDATE scenario_results SET status = 'running', phase = $2 WHERE id = $1`,
 		id, phase,
+	)
+	return err
+}
+
+func (s *runStore) UpdateScenarioIdentity(ctx context.Context, id uuid.UUID, executorName, executorType, executionID, simulationID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE scenario_results SET executor_name = $2, executor_type = $3, execution_id = $4, simulation_id = $5 WHERE id = $1`,
+		id, executorName, executorType, executionID, simulationID,
+	)
+	return err
+}
+
+func (s *runStore) UpdateScenarioAssertions(ctx context.Context, id uuid.UUID, assertionsJSON []byte) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE scenario_results SET assertions = $2 WHERE id = $1`,
+		id, assertionsJSON,
 	)
 	return err
 }

@@ -23,7 +23,7 @@
 
 	let assertionCounts = $derived.by(() => {
 		if (!result?.assertions || result.assertions.length === 0) return null;
-		const passed = result.assertions.filter((a) => a.passed).length;
+		const passed = result.assertions.filter((a) => a.passed === true).length;
 		return { passed, total: result.assertions.length };
 	});
 
@@ -42,6 +42,35 @@
 		entry.status === 'completed' && result ? (result.isSuccess ? 'pass' : 'fail') : entry.status
 	);
 </script>
+
+<!-- Mini assertion bar: one tick per assertion, capped before it gets noisy.
+	 Tri-state: passed → success, failed → error, pending (undefined) → muted. -->
+{#snippet assertionBar()}
+	{#if assertionCounts}
+		{#if assertionCounts.total <= 8}
+			<div class="hidden items-center gap-1.5 sm:flex">
+				<div class="flex gap-[2px]">
+					{#each result?.assertions ?? [] as a}
+						<span
+							class="h-4 w-[6px] rounded-[2px] {a.passed === true
+								? 'bg-status-success'
+								: a.passed === false
+									? 'bg-status-error'
+									: 'bg-muted-foreground/30'}"
+						></span>
+					{/each}
+				</div>
+				<span class="font-mono text-xs text-muted-foreground"
+					>{assertionCounts.passed}/{assertionCounts.total}</span
+				>
+			</div>
+		{:else}
+			<span class="font-mono text-xs text-muted-foreground"
+				>{assertionCounts.passed}/{assertionCounts.total} assertions</span
+			>
+		{/if}
+	{/if}
+{/snippet}
 
 <div class="relative">
 	<!-- Timeline marker sitting on the rail -->
@@ -85,7 +114,7 @@
 						<span
 							class="flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted-foreground"
 						>
-							{#if result}
+							{#if result?.executorName}
 								<span>{result.executorName}</span>
 								{#if result.simulationId}
 									<span class="text-muted-foreground/50">·</span>
@@ -110,27 +139,7 @@
 							</span>
 							<Badge variant="secondary">explore</Badge>
 						{:else if assertionCounts}
-							<!-- Mini assertion bar: one tick per assertion, capped before it gets noisy -->
-							{#if assertionCounts.total <= 8}
-								<div class="hidden items-center gap-1.5 sm:flex">
-									<div class="flex gap-[2px]">
-										{#each result.assertions ?? [] as a}
-											<span
-												class="h-4 w-[6px] rounded-[2px] {a.passed
-													? 'bg-status-success'
-													: 'bg-status-error'}"
-											></span>
-										{/each}
-									</div>
-									<span class="font-mono text-xs text-muted-foreground"
-										>{assertionCounts.passed}/{assertionCounts.total}</span
-									>
-								</div>
-							{:else}
-								<span class="font-mono text-xs text-muted-foreground"
-									>{assertionCounts.passed}/{assertionCounts.total} assertions</span
-								>
-							{/if}
+							{@render assertionBar()}
 						{/if}
 						<span class="font-mono text-xs text-muted-foreground tabular-nums"
 							>{result.durationSecs.toFixed(1)}s</span
@@ -138,11 +147,16 @@
 						<Badge variant={result.isSuccess ? 'success' : 'destructive'}>
 							{result.isSuccess ? 'passed' : 'failed'}
 						</Badge>
-					{:else if entry.status === 'running' && entry.phase}
-						<Badge variant="secondary" class="flex items-center gap-1.5">
-							<LoaderCircleIcon class="h-3 w-3 animate-spin" />
-							{phaseLabels[entry.phase] || entry.phase}
-						</Badge>
+					{:else if entry.status === 'running'}
+						{#if assertionCounts}
+							{@render assertionBar()}
+						{/if}
+						{#if entry.phase}
+							<Badge variant="secondary" class="flex items-center gap-1.5">
+								<LoaderCircleIcon class="h-3 w-3 animate-spin" />
+								{phaseLabels[entry.phase] || entry.phase}
+							</Badge>
+						{/if}
 					{:else if entry.status === 'pending'}
 						<Badge variant="outline">Pending</Badge>
 					{/if}

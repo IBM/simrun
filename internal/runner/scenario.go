@@ -21,8 +21,13 @@ type Scenario struct {
 	Indicators     *Indicators
 	Metadata       *Metadata
 	StatusCallback func(scenarioName, phase string)
-	ExploreMode    bool // when true, discover all matching alerts instead of asserting specific rules
-	CleanupAlerts  bool // when true in explore mode, close discovered alerts after run
+	// IdentityCallback fires once after detonation, carrying executor identity.
+	IdentityCallback func(scenarioName string, identity ScenarioIdentity)
+	// AssertionsCallback fires when an assertion newly matches, carrying the
+	// current pass/pending state of every assertion.
+	AssertionsCallback func(scenarioName string, results []AssertionResult)
+	ExploreMode        bool // when true, discover all matching alerts instead of asserting specific rules
+	CleanupAlerts      bool // when true in explore mode, close discovered alerts after run
 
 	// Populated by runner after assertion matching completes
 	FailedAssertions []matchers.AlertGeneratedMatcher
@@ -33,6 +38,22 @@ type Scenario struct {
 	// Populated by runner after collection completes
 	CollectedLogPath  string
 	CollectedDocCount int
+}
+
+// ScenarioIdentity is the executor identity surfaced mid-run, after detonation.
+type ScenarioIdentity struct {
+	ExecutorName string
+	ExecutorType string
+	ExecutionID  string
+	SimulationID string
+}
+
+// AssertionResult is the mid-run state of a single assertion. Passed is nil
+// while the assertion is still pending (not yet matched).
+type AssertionResult struct {
+	MatcherType string
+	AlertName   string
+	Passed      *bool
 }
 
 // DiscoveredAlert represents an alert found during explore mode.
