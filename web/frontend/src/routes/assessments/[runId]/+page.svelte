@@ -22,8 +22,6 @@
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
-	import XCircleIcon from '@lucide/svelte/icons/circle-x';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
@@ -48,6 +46,13 @@
 	const total = $derived($currentRun?.total ?? 0);
 	const succeededPct = $derived(total > 0 ? (trackerSucceeded / total) * 100 : 0);
 	const failedPct = $derived(total > 0 ? (trackerFailed / total) * 100 : 0);
+	const pendingPct = $derived(Math.max(0, 100 - succeededPct - failedPct));
+
+	// Pass-rate gauge ring geometry.
+	const GAUGE_R = 52;
+	const GAUGE_CIRC = 2 * Math.PI * GAUGE_R;
+	const gaugeOffset = $derived(GAUGE_CIRC * (1 - succeededPct / 100));
+	const passPct = $derived(Math.round(succeededPct));
 
 	function stopPolling() {
 		if (pollTimer) {
@@ -164,105 +169,145 @@
 			</Breadcrumb.List>
 		</Breadcrumb.Root>
 
-		<div class="rounded-lg border bg-card animate-fade-up stagger-2">
-			<div class="flex items-start justify-between gap-4 px-5 pt-4 pb-3">
-				<div class="min-w-0 space-y-1">
-					<div class="flex items-center gap-2.5">
-						<h1 class="text-lg font-bold font-mono leading-none">{$currentRun.id.slice(0, 8)}</h1>
-						<Badge variant={statusVariant($currentRun.status)}>
-							{$currentRun.status}
-						</Badge>
-						{#if $currentRun.scenarioType}
-							<Badge
-								variant={$currentRun.scenarioType === 'explore'
-									? 'secondary'
-									: $currentRun.scenarioType === 'collect'
-										? 'outline'
-										: 'default'}
-							>
-								{$currentRun.scenarioType}
-							</Badge>
-						{/if}
-					</div>
-
-					<div class="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
-						{#if $currentRun.scenarioId}
-							<span class="inline-flex items-center gap-1">
-								<FileTextIcon class="h-3.5 w-3.5 shrink-0" />
-								{#if scenarioName}
-									<a
-										href={`/scenarios/${$currentRun.scenarioId}`}
-										class="text-foreground hover:underline underline-offset-2 truncate max-w-[240px]"
-									>
-										{scenarioName}
-									</a>
-								{:else}
-									<span class="font-mono">{$currentRun.scenarioId.slice(0, 8)}</span>
-								{/if}
-							</span>
-						{/if}
-						{#if $currentRun.scheduleName}
-							<span class="inline-flex items-center gap-1">
-								<CalendarClockIcon class="h-3.5 w-3.5 shrink-0" />
-								<span>{$currentRun.scheduleName}</span>
-							</span>
-						{:else if $currentRun.createdBy && $currentRun.createdBy !== 'anonymous'}
-							<span class="inline-flex items-center gap-1">
-								<UserIcon class="h-3.5 w-3.5 shrink-0" />
-								<Tooltip.Root>
-									<Tooltip.Trigger class="cursor-default">
-										{formatUserEmail($currentRun.createdBy)}
-									</Tooltip.Trigger>
-									<Tooltip.Content>{$currentRun.createdBy}</Tooltip.Content>
-								</Tooltip.Root>
-							</span>
-						{/if}
-						<span class="inline-flex items-center gap-1">
-							<ClockIcon class="h-3.5 w-3.5 shrink-0" />
-							<span class="font-mono text-xs"
-								>{formatDuration($currentRun.startTime, $currentRun.endTime)}</span
-							>
-						</span>
-					</div>
+		<div
+			class="animate-fade-up stagger-2 flex flex-col gap-6 rounded-lg border bg-card p-5 sm:flex-row sm:items-center sm:gap-7"
+		>
+			<!-- Pass-rate gauge -->
+			<div class="relative h-[128px] w-[128px] shrink-0 self-center sm:self-auto">
+				<svg class="h-full w-full -rotate-90" viewBox="0 0 128 128">
+					<circle cx="64" cy="64" r={GAUGE_R} fill="none" class="stroke-muted" stroke-width="10" />
+					<circle
+						cx="64"
+						cy="64"
+						r={GAUGE_R}
+						fill="none"
+						class="stroke-primary transition-[stroke-dashoffset] duration-700 ease-out"
+						stroke-width="10"
+						stroke-linecap="round"
+						stroke-dasharray={GAUGE_CIRC}
+						stroke-dashoffset={gaugeOffset}
+					/>
+				</svg>
+				<div class="absolute inset-0 flex flex-col items-center justify-center">
+					<span class="font-mono text-4xl font-bold leading-none tabular-nums">{passPct}</span>
+					<span class="mt-1 font-mono text-xs text-muted-foreground">% passed</span>
 				</div>
-
-				<Button
-					variant="ghost"
-					size="icon"
-					class="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-					onclick={() => (deleteDialogOpen = true)}
-				>
-					<TrashIcon class="h-4 w-4" />
-				</Button>
 			</div>
 
-			<div class="px-5 pb-4 pt-1">
-				<div class="flex items-center gap-3">
-					<div class="bg-muted relative h-1.5 overflow-hidden rounded-full flex-1">
+			<!-- Identity + detection rail + tallies -->
+			<div class="min-w-0 flex-1">
+				<div class="flex items-start justify-between gap-4">
+					<div class="min-w-0">
+						<div class="flex flex-wrap items-center gap-2.5">
+							<h1 class="font-mono text-lg font-bold leading-none">{$currentRun.id.slice(0, 8)}</h1>
+							<Badge variant={statusVariant($currentRun.status)}>{$currentRun.status}</Badge>
+							{#if $currentRun.scenarioType}
+								<Badge
+									variant={$currentRun.scenarioType === 'explore'
+										? 'secondary'
+										: $currentRun.scenarioType === 'collect'
+											? 'outline'
+											: 'default'}
+								>
+									{$currentRun.scenarioType}
+								</Badge>
+							{/if}
+						</div>
+
 						<div
-							class="bg-success h-full transition-all duration-500 ease-out absolute left-0 top-0"
-							style="width: {succeededPct}%"
-						></div>
+							class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
+						>
+							{#if $currentRun.scenarioId}
+								<span class="inline-flex items-center gap-1">
+									<FileTextIcon class="h-3.5 w-3.5 shrink-0" />
+									{#if scenarioName}
+										<a
+											href={`/scenarios/${$currentRun.scenarioId}`}
+											class="max-w-[240px] truncate text-foreground underline-offset-2 hover:underline"
+										>
+											{scenarioName}
+										</a>
+									{:else}
+										<span class="font-mono">{$currentRun.scenarioId.slice(0, 8)}</span>
+									{/if}
+								</span>
+							{/if}
+							{#if $currentRun.scheduleName}
+								<span class="inline-flex items-center gap-1">
+									<CalendarClockIcon class="h-3.5 w-3.5 shrink-0" />
+									<span>{$currentRun.scheduleName}</span>
+								</span>
+							{:else if $currentRun.createdBy && $currentRun.createdBy !== 'anonymous'}
+								<span class="inline-flex items-center gap-1">
+									<UserIcon class="h-3.5 w-3.5 shrink-0" />
+									<Tooltip.Root>
+										<Tooltip.Trigger class="cursor-default">
+											{formatUserEmail($currentRun.createdBy)}
+										</Tooltip.Trigger>
+										<Tooltip.Content>{$currentRun.createdBy}</Tooltip.Content>
+									</Tooltip.Root>
+								</span>
+							{/if}
+							<span class="inline-flex items-center gap-1">
+								<ClockIcon class="h-3.5 w-3.5 shrink-0" />
+								<span class="font-mono text-xs">
+									{formatDuration($currentRun.startTime, $currentRun.endTime)}
+								</span>
+							</span>
+						</div>
+					</div>
+
+					<Button
+						variant="ghost"
+						size="icon"
+						class="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+						onclick={() => (deleteDialogOpen = true)}
+					>
+						<TrashIcon class="h-4 w-4" />
+					</Button>
+				</div>
+
+				<!-- Segmented pass / fail / pending rail -->
+				<div class="mt-4 flex h-2.5 overflow-hidden rounded-full bg-muted">
+					<div
+						class="h-full bg-status-success transition-all duration-500 ease-out"
+						style="width: {succeededPct}%"
+					></div>
+					<div
+						class="h-full bg-status-error transition-all duration-500 ease-out"
+						style="width: {failedPct}%"
+					></div>
+					{#if pendingPct > 0}
 						<div
-							class="bg-destructive h-full transition-all duration-500 ease-out absolute top-0"
-							style="left: {succeededPct}%; width: {failedPct}%"
+							class="h-full bg-status-processing/40 transition-all duration-500 ease-out"
+							style="width: {pendingPct}%"
 						></div>
-					</div>
-					<div class="flex items-center gap-2.5 text-xs text-muted-foreground whitespace-nowrap">
-						<span class="inline-flex items-center gap-1">
-							<CheckCircleIcon class="h-3.5 w-3.5 text-success" />
-							<span class="font-mono font-medium text-foreground">{trackerSucceeded}</span>
+					{/if}
+				</div>
+
+				<div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+					<span class="inline-flex items-baseline gap-1.5">
+						<span class="font-mono text-xl font-bold leading-none text-status-success"
+							>{trackerSucceeded}</span
+						>
+						<span class="text-xs text-muted-foreground">passed</span>
+					</span>
+					<span class="inline-flex items-baseline gap-1.5">
+						<span class="font-mono text-xl font-bold leading-none text-status-error"
+							>{trackerFailed}</span
+						>
+						<span class="text-xs text-muted-foreground">failed</span>
+					</span>
+					<span class="inline-flex items-baseline gap-1.5">
+						<span class="font-mono text-xl font-bold leading-none">{total}</span>
+						<span class="text-xs text-muted-foreground">scenarios</span>
+					</span>
+					{#if $currentRun.status === 'running'}
+						<span class="inline-flex items-center gap-1.5 text-xs text-status-processing">
+							<LoaderCircleIcon class="h-3.5 w-3.5 animate-spin" />
+							running
 						</span>
-						<span class="inline-flex items-center gap-1">
-							<XCircleIcon class="h-3.5 w-3.5 text-destructive" />
-							<span class="font-mono font-medium text-foreground">{trackerFailed}</span>
-						</span>
-						<span class="text-muted-foreground/60">/</span>
-						<span class="font-mono">{total}</span>
-						{#if $currentRun.status === 'running'}
-							<LoaderCircleIcon class="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-						{/if}
-					</div>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -272,11 +317,17 @@
 				<Tabs.Trigger value="results">Results ({tracker.sortedEntries.length})</Tabs.Trigger>
 				<Tabs.Trigger value="logs">Logs ({tracker.logs.length})</Tabs.Trigger>
 			</Tabs.List>
-			<Tabs.Content value="results" class="space-y-3 pt-4">
+			<Tabs.Content value="results" class="pt-4">
 				{#if tracker.sortedEntries.length > 0}
-					{#each tracker.sortedEntries as entry (entry.name)}
-						<ScenarioResultComponent {entry} logs={tracker.getLogsForScenario(entry.name)} />
-					{/each}
+					<!-- Timeline rail: a single line behind the status markers on each row -->
+					<div class="relative space-y-3 pl-8">
+						<div
+							class="pointer-events-none absolute bottom-2 left-[9px] top-2 w-px bg-gradient-to-b from-border via-border to-transparent"
+						></div>
+						{#each tracker.sortedEntries as entry (entry.name)}
+							<ScenarioResultComponent {entry} logs={tracker.getLogsForScenario(entry.name)} />
+						{/each}
+					</div>
 				{:else}
 					<p class="text-sm text-muted-foreground">No scenarios yet.</p>
 				{/if}
