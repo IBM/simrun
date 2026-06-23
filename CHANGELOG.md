@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/IBM/simrun/compare/v0.2.0...v0.2.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* region bug and minor UI changes ([#11](https://github.com/IBM/simrun/issues/11)) ([863a6ca](https://github.com/IBM/simrun/commit/863a6ca77baba1650a28995e794b598412070573))
+
 ## [0.2.0](https://github.com/IBM/simrun/compare/v0.1.0...v0.2.0) (2026-06-18)
 
 
