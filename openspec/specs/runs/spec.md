@@ -81,8 +81,9 @@ remove the run's on-disk artifacts: the run's JSONL log file, every collected
 `.ndjson` file referenced by the run's `scenario_results.collected_log_path`,
 and, for each scenario result with a non-empty `execution_id`, the run's
 Terraform working directory at `<DataDir>/terraform/<execution_id>/`. The
-system SHALL skip Terraform-directory removal for any `execution_id` that is
-blank/whitespace or contains a path separator, so cleanup can never escape or
+system SHALL skip Terraform-directory removal for any `execution_id` that does
+not resolve to a direct child of `<DataDir>/terraform/` — including blank/whitespace
+ids, ids containing a path separator, and `.`/`..` — so cleanup can never escape or
 remove the `<DataDir>/terraform/` base directory. Failure to remove any on-disk
 artifact (log file, collected `.ndjson`, or Terraform directory) SHALL be logged
 and SHALL NOT fail the request.

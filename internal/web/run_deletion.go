@@ -68,14 +68,16 @@ func deleteRunWithArtifacts(ctx context.Context, runStore db.RunStore, dataDir s
 	}
 
 	// Best-effort: remove each scenario result's Terraform working directory at
-	// <dataDir>/terraform/<execution_id>/. Skip blank/whitespace or path-bearing
-	// IDs so cleanup can never escape or wipe the terraform/ base directory.
+	// <dataDir>/terraform/<execution_id>/.
+	base := filepath.Join(dataDir, "terraform")
 	for _, id := range executionIDs {
-		if strings.TrimSpace(id) == "" ||
-			strings.ContainsRune(id, '/') || strings.ContainsRune(id, filepath.Separator) {
+		dir := filepath.Join(base, id)
+		// Skip blank/whitespace ids and any id that doesn't resolve to a direct
+		// child of terraform/. filepath.Join cleans the result, so separators,
+		// "." and ".." would otherwise let cleanup escape or wipe the base dir.
+		if strings.TrimSpace(id) == "" || filepath.Dir(dir) != base {
 			continue
 		}
-		dir := filepath.Join(dataDir, "terraform", id)
 		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
 			logrus.WithError(err).WithField("path", dir).WithField("run_id", runID).
 				Warn("failed to remove Terraform working directory")

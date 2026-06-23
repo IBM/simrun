@@ -179,7 +179,7 @@ func TestSweepAssessments_RemovesTerraformDirs(t *testing.T) {
 // An unsafe execution_id must never cause cleanup to escape or wipe the
 // terraform/ base directory — a blank id would otherwise RemoveAll the base.
 func TestSweepAssessments_SkipsUnsafeExecutionID(t *testing.T) {
-	for _, execID := range []string{"", "   ", "../escape", "nested/id"} {
+	for _, execID := range []string{"", "   ", "../escape", "nested/id", ".", ".."} {
 		t.Run("id="+execID, func(t *testing.T) {
 			dataDir := t.TempDir()
 			store := fakes.New().Run
