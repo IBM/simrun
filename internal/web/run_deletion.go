@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/IBM/simrun/internal/db"
@@ -13,19 +14,22 @@ import (
 
 // deleteRunWithArtifacts removes a run's database row (cascading to its
 // scenario_results via FK) and best-effort removes all of its on-disk
-// artifacts: the per-run JSONL log file and every collected .ndjson file
-// referenced by scenario_results.collected_log_path.
+// artifacts: the per-run JSONL log file, every collected .ndjson file
+// referenced by scenario_results.collected_log_path, and each scenario
+// result's Terraform working directory at <dataDir>/terraform/<execution_id>/.
 //
-// Collected paths are read before the row is deleted, since the cascade
-// removes the scenario_results that hold them. On-disk removal is best-effort:
-// a missing or unremovable file logs a warning but does not fail the delete,
-// so a leftover artifact never blocks reclaiming the database row.
+// Collected paths and execution IDs are read before the row is deleted, since
+// the cascade removes the scenario_results that hold them. On-disk removal is
+// best-effort: a missing or unremovable file logs a warning but does not fail
+// the delete, so a leftover artifact never blocks reclaiming the database row.
 //
 // Shared by manual delete (HandleDeleteRun) and the assessment-retention
 // sweeper so both reclaim the large collected .ndjson artifacts identically.
 func deleteRunWithArtifacts(ctx context.Context, runStore db.RunStore, dataDir string, runID uuid.UUID) error {
-	// Collect the .ndjson paths before deleting, while the rows still exist.
+	// Collect the .ndjson paths and execution IDs before deleting, while the
+	// rows still exist.
 	var collected []string
+	var executionIDs []string
 	results, err := runStore.GetScenarioResults(ctx, runID)
 	if err != nil {
 		// A failed lookup must not strand the row: log and continue to delete.
@@ -36,6 +40,7 @@ func deleteRunWithArtifacts(ctx context.Context, runStore db.RunStore, dataDir s
 			if res.CollectedLogPath != nil && *res.CollectedLogPath != "" {
 				collected = append(collected, *res.CollectedLogPath)
 			}
+			executionIDs = append(executionIDs, res.ExecutionID)
 		}
 	}
 
@@ -59,6 +64,23 @@ func deleteRunWithArtifacts(ctx context.Context, runStore db.RunStore, dataDir s
 		if err := os.Remove(clean); err != nil && !os.IsNotExist(err) {
 			logrus.WithError(err).WithField("path", clean).WithField("run_id", runID).
 				Warn("failed to remove collected log file")
+		}
+	}
+
+	// Best-effort: remove each scenario result's Terraform working directory at
+	// <dataDir>/terraform/<execution_id>/.
+	base := filepath.Join(dataDir, "terraform")
+	for _, id := range executionIDs {
+		dir := filepath.Join(base, id)
+		// Skip blank/whitespace ids and any id that doesn't resolve to a direct
+		// child of terraform/. filepath.Join cleans the result, so separators,
+		// "." and ".." would otherwise let cleanup escape or wipe the base dir.
+		if strings.TrimSpace(id) == "" || filepath.Dir(dir) != base {
+			continue
+		}
+		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			logrus.WithError(err).WithField("path", dir).WithField("run_id", runID).
+				Warn("failed to remove Terraform working directory")
 		}
 	}
 

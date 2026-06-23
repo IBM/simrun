@@ -22,6 +22,13 @@ type builtinParam struct {
 	rewrite func(simulationID string, defaultTagsValue map[string]string, file *hclwrite.File) bool
 }
 
+// DefaultAWSRegion is the built-in default for the aws_region pack
+// parameter. The terraform AWS provider is rewritten to use var.aws_region
+// (see rewriteAWSRegion); the detonator pins the detonation's AWS_REGION to
+// the same value so resources are acted on in the region terraform created
+// them in.
+const DefaultAWSRegion = "us-east-1"
+
 // awsRegions is the canonical set of AWS regions exposed in the
 // aws_region enum.
 var awsRegions = []string{
@@ -81,7 +88,7 @@ var builtinParams = []builtinParam{
 			Name:        "aws_region",
 			Type:        PackParamTypeString,
 			Description: "AWS region used by the pack's AWS provider.",
-			Default:     "us-east-1",
+			Default:     DefaultAWSRegion,
 			Enum:        awsRegions,
 		},
 		hclType: "string",

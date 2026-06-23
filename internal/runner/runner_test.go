@@ -103,7 +103,7 @@ func TestRunnerErrorHandling(t *testing.T) {
 	mockDetonator.On("SetStatusCallback", mock.AnythingOfType("func(string)")).Return()
 
 	mockFailingDetonator := &detonatorMocks.MockDetonator{}
-	mockFailingDetonator.On("Detonate").Return(map[string]string{}, errors.New("foo"))
+	mockFailingDetonator.On("Detonate").Return(map[string]string{"execution_id": "failed-uid"}, errors.New("foo"))
 	mockFailingDetonator.On("String").Return("mock-failing-detonator")
 	mockFailingDetonator.On("SimulationId").Return("failing-simulation")
 	mockFailingDetonator.On("PackName").Return("")
@@ -154,6 +154,15 @@ func TestRunnerErrorHandling(t *testing.T) {
 	}
 	assert.Equal(t, 2, successCount)
 	assert.Equal(t, 1, failedCount)
+
+	// A failed scenario must still carry its execution_id so the result can be
+	// correlated with the partial detonation (e.g. terraform that did apply).
+	for _, result := range results {
+		if !result.Success {
+			assert.Equal(t, "failed-uid", result.ExecutionId,
+				"failed scenario should retain the execution_id from the detonation output")
+		}
+	}
 
 	// All scenarios should have been detonated, even if one returned an error
 	mockDetonator.AssertNumberOfCalls(t, "Detonate", 2)
