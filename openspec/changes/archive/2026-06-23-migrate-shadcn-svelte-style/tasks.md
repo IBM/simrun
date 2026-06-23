@@ -3,7 +3,7 @@
 - [x] 1.1 Create a migration branch off `main` (isolated, revertible). (Branched off `ui/revamp` HEAD, not `main`, since this change depends on recent rule-coverage/pagination commits there.)
 - [x] 1.2 Confirm the shadcn-svelte CLI version and the registry style it resolves to; note expected differences from the current components.
 - [x] 1.3 Build a "known customizations" checklist by diffing current `ui/*` components against old-style registry output (capture `badge` `success` variant, any custom `button` variants, and any other deviations).
-- [ ] 1.4 Snapshot current visual baseline (screenshots of key pages in light + dark) for later comparison.
+- [x] 1.4 Snapshot current visual baseline (screenshots of key pages in light + dark) for later comparison.
 
 ## 2. Foundation: theme + primitives
 
@@ -35,5 +35,5 @@
 
 ## 6. Wrap-up
 
-- [ ] 6.1 Open a PR summarizing the style migration, the `data-icon` convention change, and the dependency bump.
-- [ ] 6.2 After merge, run `/opsx:archive` to archive this change.
+- [x] 6.1 Open a PR summarizing the style migration, the `data-icon` convention change, and the dependency bump.
+- [x] 6.2 After merge, run `/opsx:archive` to archive this change.
