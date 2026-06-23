@@ -32,13 +32,7 @@
 		lintScenario
 	} from '$lib/api/client';
 	import { scenarioTypeVariant } from '$lib/utils/format';
-	import type {
-		Pack,
-		PackManifest,
-		ElasticRule,
-		Connector,
-		ScenarioType
-	} from '$lib/types';
+	import type { Pack, PackManifest, ElasticRule, Connector, ScenarioType } from '$lib/types';
 
 	type SaveOptions = { run?: boolean };
 
@@ -61,11 +55,7 @@
 		initialTarget?: FormTarget;
 		initialYaml?: string;
 		initialBuilderSupported?: boolean;
-		onsave: (
-			name: string,
-			yaml: string,
-			options: SaveOptions
-		) => Promise<void>;
+		onsave: (name: string, yaml: string, options: SaveOptions) => Promise<void>;
 		oncancel: () => void;
 		onschedule?: () => void;
 	} = $props();
@@ -76,9 +66,7 @@
 	let name = $state(initialName);
 	/* svelte-ignore state_referenced_locally */
 	let scenarios = $state<FormScenario[]>(
-		initialScenarios && initialScenarios.length > 0
-			? initialScenarios
-			: [seedScenario(type)]
+		initialScenarios && initialScenarios.length > 0 ? initialScenarios : [seedScenario(type)]
 	);
 	/* svelte-ignore state_referenced_locally */
 	let target = $state<FormTarget>(initialTarget ?? createEmptyTarget());
@@ -225,11 +213,7 @@
 		const source = scenarios[index];
 		const copy = $state.snapshot(source) as FormScenario;
 		copy.name = source.name ? `${source.name} (copy)` : '';
-		scenarios = [
-			...scenarios.slice(0, index + 1),
-			copy,
-			...scenarios.slice(index + 1)
-		];
+		scenarios = [...scenarios.slice(0, index + 1), copy, ...scenarios.slice(index + 1)];
 		markDirty();
 	}
 
@@ -320,7 +304,6 @@
 		pendingNavigate = null;
 		fn?.();
 	}
-
 </script>
 
 <div class="flex flex-col h-full">
@@ -337,11 +320,16 @@
 			<div class="ml-auto flex items-center gap-2">
 				{#if mode === 'edit' && onschedule}
 					<Button variant="ghost" size="sm" onclick={onschedule}>
-						<CalendarIcon class="h-4 w-4 mr-1.5" />
+						<CalendarIcon data-icon="inline-start" />
 						Schedule
 					</Button>
 				{/if}
-				<Button variant="outline" size="sm" onclick={handleCancel} disabled={saving || savingAndRunning}>
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={handleCancel}
+					disabled={saving || savingAndRunning}
+				>
 					Cancel
 				</Button>
 				<Button
@@ -351,9 +339,9 @@
 					disabled={saving || savingAndRunning || !name.trim()}
 				>
 					{#if savingAndRunning}
-						<LoaderIcon class="h-4 w-4 mr-1.5 animate-spin" />
+						<LoaderIcon data-icon="inline-start" class="animate-spin" />
 					{:else}
-						<PlayIcon class="h-4 w-4 mr-1.5" />
+						<PlayIcon data-icon="inline-start" />
 					{/if}
 					Save & Run
 				</Button>
@@ -396,7 +384,10 @@
 					<div class="inline-flex rounded-md border bg-muted/40 p-0.5">
 						<button
 							type="button"
-							class="inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors {editorMode === 'builder' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+							class="inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors {editorMode ===
+							'builder'
+								? 'bg-background shadow-sm text-foreground'
+								: 'text-muted-foreground hover:text-foreground'}"
 							onclick={switchToBuilder}
 						>
 							<WrenchIcon class="h-3.5 w-3.5" />
@@ -404,7 +395,10 @@
 						</button>
 						<button
 							type="button"
-							class="inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors {editorMode === 'yaml' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+							class="inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors {editorMode ===
+							'yaml'
+								? 'bg-background shadow-sm text-foreground'
+								: 'text-muted-foreground hover:text-foreground'}"
 							onclick={switchToYaml}
 						>
 							<CodeIcon class="h-3.5 w-3.5" />
@@ -436,7 +430,9 @@
 									{@const available = connectors.filter((c) => c.type === cloudType && c.enabled)}
 									{#if available.length > 0}
 										<div>
-											<Label class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+											<Label
+												class="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block"
+											>
 												{cloudType}
 											</Label>
 											<Select.Root
@@ -480,17 +476,14 @@
 						{/each}
 
 						<Button variant="outline" class="w-full" onclick={addScenario}>
-							<PlusIcon size={16} class="mr-2" />
+							<PlusIcon data-icon="inline-start" />
 							Add Scenario
 						</Button>
 					</div>
 				{/if}
 			{:else}
 				<div class="rounded-lg border overflow-hidden">
-					<YamlEditor
-						bind:value={yamlText}
-						onchange={() => markDirty()}
-					/>
+					<YamlEditor bind:value={yamlText} onchange={() => markDirty()} />
 				</div>
 			{/if}
 		</div>

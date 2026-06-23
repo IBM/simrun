@@ -11,6 +11,7 @@ import (
 	"github.com/IBM/simrun/internal/db"
 	"github.com/IBM/simrun/internal/parser"
 	"github.com/IBM/simrun/internal/results"
+	"github.com/IBM/simrun/internal/runner"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -232,6 +233,28 @@ func (s *ScenarioService) Run(ctx context.Context, scenarioID uuid.UUID, opts *R
 				if err := s.runStore.UpdateScenarioPhase(context.Background(), dbID, phase); err != nil {
 					log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to update scenario phase")
 				}
+			}
+		}
+		sc.IdentityCallback = func(scenarioName string, identity runner.ScenarioIdentity) {
+			if dbID, ok := scenarioDBIDs[scenarioName]; ok {
+				if err := s.runStore.UpdateScenarioIdentity(context.Background(), dbID,
+					identity.ExecutorName, identity.ExecutorType, identity.ExecutionID, identity.SimulationID); err != nil {
+					log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to update scenario identity")
+				}
+			}
+		}
+		sc.AssertionsCallback = func(scenarioName string, assertions []runner.AssertionResult) {
+			dbID, ok := scenarioDBIDs[scenarioName]
+			if !ok {
+				return
+			}
+			assertionsJSON, err := buildPartialAssertionsJSON(assertions)
+			if err != nil {
+				log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to marshal partial assertions")
+				return
+			}
+			if err := s.runStore.UpdateScenarioAssertions(context.Background(), dbID, assertionsJSON); err != nil {
+				log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to update scenario assertions")
 			}
 		}
 	}

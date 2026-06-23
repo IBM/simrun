@@ -325,7 +325,7 @@
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold">Scenarios</h1>
 		<Button onclick={() => (newDialogOpen = true)}>
-			<PlusIcon class="mr-2 h-4 w-4" />
+			<PlusIcon data-icon="inline-start" />
 			New Scenario
 		</Button>
 	</div>
@@ -381,7 +381,7 @@
 
 		{#if hasActiveFilters}
 			<Button variant="ghost" size="sm" class="h-9" onclick={clearFilters}>
-				<XIcon class="mr-1 h-4 w-4" />
+				<XIcon data-icon="inline-start" />
 				Clear filters
 			</Button>
 		{/if}
@@ -417,7 +417,7 @@
 			<Empty.Content>
 				{#if hasActiveFilters}
 					<Button variant="outline" onclick={clearFilters}>
-						<XIcon class="mr-2 h-4 w-4" />
+						<XIcon data-icon="inline-start" />
 						Clear filters
 					</Button>
 				{:else}

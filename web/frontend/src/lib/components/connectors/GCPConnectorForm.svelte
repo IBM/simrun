@@ -102,9 +102,7 @@
 <div class="space-y-2">
 	<Label for={projIdId}>Project ID</Label>
 	<Input id={projIdId} placeholder="my-gcp-project" bind:value={fields.projectId} />
-	<p class="text-xs text-muted-foreground">
-		GCP project ID (injected as GOOGLE_CLOUD_PROJECT)
-	</p>
+	<p class="text-xs text-muted-foreground">GCP project ID (injected as GOOGLE_CLOUD_PROJECT)</p>
 </div>
 <div class="space-y-2">
 	<Label>Authentication Method</Label>
@@ -137,9 +135,7 @@
 			placeholder="simrun@project-id.iam.gserviceaccount.com"
 			bind:value={fields.serviceAccountEmail}
 		/>
-		<p class="text-xs text-muted-foreground">
-			The GCP service account to impersonate via WIF
-		</p>
+		<p class="text-xs text-muted-foreground">The GCP service account to impersonate via WIF</p>
 	</div>
 {:else}
 	<div class="space-y-2">

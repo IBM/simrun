@@ -71,9 +71,7 @@
 
 	export function canTest(): boolean {
 		if (fields.authType !== 'wif') return false;
-		return (
-			!!fields.tenantId.trim() && !!fields.subscriptionId.trim() && !!fields.clientId.trim()
-		);
+		return !!fields.tenantId.trim() && !!fields.subscriptionId.trim() && !!fields.clientId.trim();
 	}
 
 	function setAuthType(v: string) {

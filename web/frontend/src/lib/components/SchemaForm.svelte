@@ -64,9 +64,7 @@
 	});
 
 	// Unknown saved keys: present in values but not declared in schema.
-	let unknownKeys = $derived<string[]>(
-		Object.keys(values).filter((k) => !(k in properties))
-	);
+	let unknownKeys = $derived<string[]>(Object.keys(values).filter((k) => !(k in properties)));
 
 	// Auto-expand the cloud defaults section if any built-in has a saved
 	// value, otherwise start collapsed.
@@ -142,11 +140,7 @@
 			/>
 		{:else if prop.type === 'string' && prop.enum && prop.enum.length > 0}
 			{@const stringValue = typeof value === 'string' ? value : ''}
-			<Select.Root
-				type="single"
-				value={stringValue}
-				onValueChange={(v) => update(name, v ?? '')}
-			>
+			<Select.Root type="single" value={stringValue} onValueChange={(v) => update(name, v ?? '')}>
 				<Select.Trigger class="w-full">
 					{stringValue || (typeof prop.default === 'string' ? prop.default : 'Select...')}
 				</Select.Trigger>
@@ -199,7 +193,7 @@
 						update(name, { ...entriesToObject(entries), '': '' });
 					}}
 				>
-					<PlusIcon size={14} class="mr-1" />
+					<PlusIcon data-icon="inline-start" />
 					Add Entry
 				</Button>
 			</div>
@@ -231,7 +225,9 @@
 	{#if builtinEntries.length > 0}
 		<Collapsible.Root bind:open={cloudOpen}>
 			<Collapsible.Trigger class="w-full">
-				<div class="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+				<div
+					class="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+				>
 					<ChevronRightIcon
 						size={14}
 						class={cloudOpen ? 'rotate-90 transition-transform' : 'transition-transform'}
@@ -264,13 +260,8 @@
 					{#each unknownKeys as key}
 						<li class="flex items-center justify-between gap-2 text-xs">
 							<code class="font-mono">{key}</code>
-							<Button
-								variant="ghost"
-								size="sm"
-								class="h-6 px-2"
-								onclick={() => removeKey(key)}
-							>
-								<XIcon size={12} class="mr-1" />
+							<Button variant="ghost" size="sm" class="h-6 px-2" onclick={() => removeKey(key)}>
+								<XIcon data-icon="inline-start" />
 								Remove
 							</Button>
 						</li>

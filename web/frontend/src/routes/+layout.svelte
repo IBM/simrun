@@ -101,7 +101,7 @@
 							</DropdownMenu.Label>
 							<DropdownMenu.Separator />
 							<DropdownMenu.Item onclick={() => auth.logout()}>
-								<LogOutIcon class="mr-2 h-4 w-4" />
+								<LogOutIcon />
 								Log out
 							</DropdownMenu.Item>
 						</DropdownMenu.Content>

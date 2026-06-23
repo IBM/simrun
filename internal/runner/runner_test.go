@@ -302,6 +302,100 @@ func TestRunnerExploreModeSucceedsWhenAlertsDiscovered(t *testing.T) {
 	assert.Equal(t, "alert-1", scenario.DiscoveredAlerts[0].AlertID)
 }
 
+// TestRunnerFiresIdentityAndAssertionCallbacks verifies the mid-run hooks that
+// power the live scenario detail view: identity is emitted exactly once after
+// detonation, and the assertions callback fires once per newly-matched
+// assertion, carrying passed=true for matches and nil (pending) for the rest.
+func TestRunnerFiresIdentityAndAssertionCallbacks(t *testing.T) {
+	mockDetonator := &detonatorMocks.MockDetonator{}
+	mockDetonator.On("Detonate").Return(map[string]string{"execution_id": "exec-123"}, nil)
+	mockDetonator.On("String").Return("mock-detonator")
+	mockDetonator.On("SimulationId").Return("sim-456")
+	mockDetonator.On("PackName").Return("")
+	mockDetonator.On("SetStatusCallback", mock.AnythingOfType("func(string)")).Return()
+
+	// matcherA matches on the first poll; matcherB only on the second, so the
+	// assertions callback must fire twice with distinct partial states.
+	matcherA := &matcherMocks.MockAlertGeneratedMatcher{}
+	matcherA.On("HasExpectedAlert", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(true, nil)
+	matcherA.On("MatcherName").Return("Elastic")
+	matcherA.On("AlertName").Return("alert-a")
+	matcherA.On("String").Return("alert-a")
+	matcherA.On("Cleanup", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
+
+	matcherB := &matcherMocks.MockAlertGeneratedMatcher{}
+	matcherB.On("HasExpectedAlert", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(false, nil).Once()
+	matcherB.On("HasExpectedAlert", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(true, nil)
+	matcherB.On("MatcherName").Return("Elastic")
+	matcherB.On("AlertName").Return("alert-b")
+	matcherB.On("String").Return("alert-b")
+	matcherB.On("Cleanup", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
+
+	var identities []ScenarioIdentity
+	var assertionSnapshots [][]AssertionResult
+
+	scenario := &Scenario{
+		Name:       "callback-scenario",
+		Detonator:  mockDetonator,
+		Assertions: []matchers.AlertGeneratedMatcher{matcherA, matcherB},
+		Timeout:    5 * time.Second,
+		IdentityCallback: func(_ string, id ScenarioIdentity) {
+			identities = append(identities, id)
+		},
+		AssertionsCallback: func(_ string, results []AssertionResult) {
+			snap := make([]AssertionResult, len(results))
+			copy(snap, results)
+			assertionSnapshots = append(assertionSnapshots, snap)
+		},
+	}
+
+	runner := Runner{Scenarios: []*Scenario{scenario}, Interval: 1 * time.Millisecond}
+	results, err := runner.Run()
+	assert.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.True(t, results[0].Success)
+
+	// Identity fires exactly once, after detonation, carrying all four fields.
+	assert.Len(t, identities, 1)
+	assert.Equal(t, ScenarioIdentity{
+		ExecutorName: "mock-detonator",
+		ExecutorType: "detonator",
+		ExecutionID:  "exec-123",
+		SimulationID: "sim-456",
+	}, identities[0])
+
+	// One callback per newly-matched assertion: A then B → two snapshots.
+	assert.Len(t, assertionSnapshots, 2)
+
+	first := assertionSnapshots[0]
+	assertAssertionPassed(t, first, "alert-a", boolPtr(true))
+	assertAssertionPassed(t, first, "alert-b", nil) // still pending
+
+	last := assertionSnapshots[len(assertionSnapshots)-1]
+	assertAssertionPassed(t, last, "alert-a", boolPtr(true))
+	assertAssertionPassed(t, last, "alert-b", boolPtr(true))
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+func assertAssertionPassed(t *testing.T, results []AssertionResult, alertName string, want *bool) {
+	t.Helper()
+	for _, r := range results {
+		if r.AlertName != alertName {
+			continue
+		}
+		if want == nil {
+			assert.Nil(t, r.Passed, "%s should be pending", alertName)
+		} else {
+			if assert.NotNil(t, r.Passed, "%s should be resolved", alertName) {
+				assert.Equal(t, *want, *r.Passed, "%s passed state", alertName)
+			}
+		}
+		return
+	}
+	t.Fatalf("assertion %q not found in snapshot", alertName)
+}
+
 func TestRunnerWithInjector(t *testing.T) {
 	// Mock injector
 	mockInjector := &injectorMocks.MockInjector{}

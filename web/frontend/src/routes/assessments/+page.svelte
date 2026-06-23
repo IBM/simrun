@@ -19,6 +19,8 @@
 		statusVariant,
 		formatDuration,
 		formatUserEmail,
+		formatRelativeTime,
+		formatTime,
 		scenarioTypeVariant
 	} from '$lib/utils/format';
 	import type { Run, ScenarioType, AppConfig } from '$lib/types';
@@ -75,6 +77,9 @@
 	let total = $state(0);
 	let page = $state(1);
 	let perPage = $state<number>(50);
+
+	// Running assessments visible on the current page — drives the live header pill.
+	const runningCount = $derived(pageRuns.filter((r) => r.status === 'running').length);
 
 	// Filter state — seeded from URL on mount, persisted via goto() on change.
 	let nameFilter = $state('');
@@ -300,14 +305,24 @@
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold">Assessment History</h1>
+		<div class="flex items-center gap-3">
+			<h1 class="text-2xl font-bold">Assessment History</h1>
+			{#if runningCount > 0}
+				<span
+					class="inline-flex items-center gap-1.5 rounded-full border border-status-processing/35 bg-status-processing/10 px-2.5 py-0.5 font-mono text-xs text-status-processing"
+				>
+					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"></span>
+					{runningCount} running
+				</span>
+			{/if}
+		</div>
 		<div class="flex items-center gap-2">
 			<Button variant="outline" onclick={openRetention}>
-				<TimerIcon class="mr-2 h-4 w-4" />
+				<TimerIcon data-icon="inline-start" />
 				Retention
 			</Button>
 			<Button onclick={() => (newAssessmentOpen = true)}>
-				<PlusIcon class="mr-2 h-4 w-4" />
+				<PlusIcon data-icon="inline-start" />
 				New Assessment
 			</Button>
 		</div>
@@ -364,7 +379,7 @@
 
 		{#if hasActiveFilters}
 			<Button variant="ghost" size="sm" class="h-9" onclick={clearFilters}>
-				<XIcon class="mr-1 h-4 w-4" />
+				<XIcon data-icon="inline-start" />
 				Clear filters
 			</Button>
 		{/if}
@@ -400,12 +415,12 @@
 			<Empty.Content>
 				{#if hasActiveFilters}
 					<Button variant="outline" onclick={clearFilters}>
-						<XIcon class="mr-2 h-4 w-4" />
+						<XIcon data-icon="inline-start" />
 						Clear filters
 					</Button>
 				{:else}
 					<Button onclick={() => (newAssessmentOpen = true)}>
-						<PlusIcon class="mr-2 h-4 w-4" />
+						<PlusIcon data-icon="inline-start" />
 						New Assessment
 					</Button>
 				{/if}
@@ -420,24 +435,31 @@
 						<Table.Head>Status</Table.Head>
 						<Table.Head>Scenario</Table.Head>
 						<Table.Head>Type</Table.Head>
-						<Table.Head>Total</Table.Head>
-						<Table.Head>Passed</Table.Head>
-						<Table.Head>Failed</Table.Head>
+						<Table.Head class="w-[200px]">Results</Table.Head>
 						<Table.Head>Started By</Table.Head>
-						<Table.Head>Start Time</Table.Head>
+						<Table.Head>Started</Table.Head>
 						<Table.Head>Duration</Table.Head>
 						<Table.Head class="w-10"></Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each pageRuns as run}
+					{#each pageRuns as run (run.id)}
+						{@const pending = Math.max(0, run.total - run.succeeded - run.failed)}
 						<Table.Row
 							class="cursor-pointer hover:bg-accent/50 transition-colors"
 							onclick={() => goto(`/assessments/${run.id}`)}
 						>
-							<Table.Cell class="font-mono text-xs">{run.id.slice(0, 8)}</Table.Cell>
+							<Table.Cell class="font-mono text-xs">
+								{run.id.slice(0, 8)}
+							</Table.Cell>
 							<Table.Cell>
-								<Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+								<Badge variant={statusVariant(run.status)} class="gap-1.5">
+									{#if run.status === 'running'}
+										<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"
+										></span>
+									{/if}
+									{run.status}
+								</Badge>
 							</Table.Cell>
 							<Table.Cell class="max-w-[200px] truncate">
 								{run.scenarioName || '--'}
@@ -449,9 +471,35 @@
 									<span class="text-muted-foreground text-xs">--</span>
 								{/if}
 							</Table.Cell>
-							<Table.Cell>{run.total}</Table.Cell>
-							<Table.Cell class="text-success">{run.succeeded}</Table.Cell>
-							<Table.Cell class={run.failed > 0 ? 'text-destructive' : ''}>{run.failed}</Table.Cell>
+							<Table.Cell>
+								{#if run.total > 0}
+									<div class="flex items-center gap-2.5">
+										<div class="flex h-[7px] w-24 overflow-hidden rounded-full bg-muted">
+											<div
+												class="h-full bg-status-success"
+												style="width: {(run.succeeded / run.total) * 100}%"
+											></div>
+											<div
+												class="h-full bg-status-error"
+												style="width: {(run.failed / run.total) * 100}%"
+											></div>
+											{#if pending > 0}
+												<div
+													class="h-full bg-status-processing/40"
+													style="width: {(pending / run.total) * 100}%"
+												></div>
+											{/if}
+										</div>
+										<span class="font-mono text-xs whitespace-nowrap">
+											<span class="font-medium text-status-success">{run.succeeded}</span><span
+												class="text-muted-foreground">/{run.total}</span
+											>
+										</span>
+									</div>
+								{:else}
+									<span class="text-muted-foreground text-xs">--</span>
+								{/if}
+							</Table.Cell>
 							<Table.Cell>
 								<Tooltip.Root>
 									<Tooltip.Trigger class="text-muted-foreground text-xs cursor-default">
@@ -460,8 +508,17 @@
 									<Tooltip.Content>{run.createdBy}</Tooltip.Content>
 								</Tooltip.Root>
 							</Table.Cell>
-							<Table.Cell>{new Date(run.startTime).toLocaleString()}</Table.Cell>
-							<Table.Cell>{formatDuration(run.startTime, run.endTime)}</Table.Cell>
+							<Table.Cell>
+								<Tooltip.Root>
+									<Tooltip.Trigger class="cursor-default whitespace-nowrap">
+										{formatRelativeTime(run.startTime)}
+									</Tooltip.Trigger>
+									<Tooltip.Content>{formatTime(run.startTime)}</Tooltip.Content>
+								</Tooltip.Root>
+							</Table.Cell>
+							<Table.Cell class="font-mono text-xs tabular-nums"
+								>{formatDuration(run.startTime, run.endTime)}</Table.Cell
+							>
 							<Table.Cell>
 								<Button
 									variant="ghost"

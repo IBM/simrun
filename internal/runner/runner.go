@@ -99,6 +99,10 @@ func (m *Runner) runScenario(scenario *Scenario) (string, float64, error) {
 		executionOutput["simulation_id"] = scenario.Detonator.SimulationId()
 	}
 
+	// Surface executor identity now that detonation has resolved execution_id /
+	// simulation_id, so a still-running row shows what is executing and where.
+	reportIdentity(scenario, executionId)
+
 	// If no assertions, no collector, and not explore mode, just return
 	if !scenario.ExploreMode && len(scenario.Assertions) == 0 && scenario.Collector == nil {
 		return executionId, 0, nil
@@ -231,6 +235,8 @@ func (m *Runner) runAssertions(scenario *Scenario, indicators []string, logger *
 	logger.Info("Waiting for assertions")
 	hasDeadline := scenario.Timeout > 0
 
+	matchedSet := make(map[matchers.AlertGeneratedMatcher]bool, len(scenario.Assertions))
+
 	for len(remainingAssertions) > 0 {
 		if hasDeadline && time.Now().After(deadline) {
 			logger.WithFields(logrus.Fields{
@@ -247,7 +253,11 @@ func (m *Runner) runAssertions(scenario *Scenario, indicators []string, logger *
 		if !matched {
 			remainingAssertions <- assertion
 			time.Sleep(m.Interval)
+			continue
 		}
+		// Newly matched: persist the updated partial state (write-on-change).
+		matchedSet[assertion] = true
+		reportAssertions(scenario, matchedSet)
 	}
 
 	numRemainingAssertions := len(remainingAssertions)
@@ -404,6 +414,50 @@ func reportStatus(scenario *Scenario, phase string) {
 	if scenario.StatusCallback != nil {
 		scenario.StatusCallback(scenario.Name, phase)
 	}
+}
+
+// reportIdentity emits the executor identity once detonation has resolved.
+// Executor name/type are derived the same way results.runSingleScenario does.
+func reportIdentity(scenario *Scenario, executionID string) {
+	if scenario.IdentityCallback == nil {
+		return
+	}
+	identity := ScenarioIdentity{ExecutionID: executionID}
+	switch {
+	case scenario.Detonator != nil:
+		identity.ExecutorType = "detonator"
+		identity.ExecutorName = scenario.Detonator.String()
+		identity.SimulationID = scenario.Detonator.SimulationId()
+	case scenario.Injector != nil:
+		identity.ExecutorType = "injector"
+		identity.ExecutorName = scenario.Injector.String()
+	default:
+		identity.ExecutorType = "unknown"
+		identity.ExecutorName = "unknown"
+	}
+	scenario.IdentityCallback(scenario.Name, identity)
+}
+
+// reportAssertions emits the current pass/pending state of every assertion.
+// Matched assertions carry Passed=true; not-yet-matched ones carry Passed=nil
+// (pending) — no terminal failure is recorded until completion.
+func reportAssertions(scenario *Scenario, matchedSet map[matchers.AlertGeneratedMatcher]bool) {
+	if scenario.AssertionsCallback == nil {
+		return
+	}
+	results := make([]AssertionResult, 0, len(scenario.Assertions))
+	for _, a := range scenario.Assertions {
+		r := AssertionResult{
+			MatcherType: a.MatcherName(),
+			AlertName:   a.AlertName(),
+		}
+		if matchedSet[a] {
+			passed := true
+			r.Passed = &passed
+		}
+		results = append(results, r)
+	}
+	scenario.AssertionsCallback(scenario.Name, results)
 }
 
 func (m *Runner) buildIndicatorsList(scenario *Scenario, detonationOutput map[string]string) []string {
