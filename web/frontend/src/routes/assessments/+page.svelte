@@ -318,11 +318,11 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<Button variant="outline" onclick={openRetention}>
-				<TimerIcon class="mr-2 h-4 w-4" />
+				<TimerIcon data-icon="inline-start" />
 				Retention
 			</Button>
 			<Button onclick={() => (newAssessmentOpen = true)}>
-				<PlusIcon class="mr-2 h-4 w-4" />
+				<PlusIcon data-icon="inline-start" />
 				New Assessment
 			</Button>
 		</div>
@@ -379,7 +379,7 @@
 
 		{#if hasActiveFilters}
 			<Button variant="ghost" size="sm" class="h-9" onclick={clearFilters}>
-				<XIcon class="mr-1 h-4 w-4" />
+				<XIcon data-icon="inline-start" />
 				Clear filters
 			</Button>
 		{/if}
@@ -415,12 +415,12 @@
 			<Empty.Content>
 				{#if hasActiveFilters}
 					<Button variant="outline" onclick={clearFilters}>
-						<XIcon class="mr-2 h-4 w-4" />
+						<XIcon data-icon="inline-start" />
 						Clear filters
 					</Button>
 				{:else}
 					<Button onclick={() => (newAssessmentOpen = true)}>
-						<PlusIcon class="mr-2 h-4 w-4" />
+						<PlusIcon data-icon="inline-start" />
 						New Assessment
 					</Button>
 				{/if}
@@ -461,8 +461,7 @@
 							<Table.Cell>
 								<Badge variant={statusVariant(run.status)} class="gap-1.5">
 									{#if run.status === 'running'}
-										<span
-											class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"
+										<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"
 										></span>
 									{/if}
 									{run.status}
@@ -500,7 +499,9 @@
 										<span class="font-mono text-xs whitespace-nowrap">
 											<span class="font-medium text-status-success">{run.succeeded}</span><span
 												class="text-muted-foreground">/{run.total}</span
-											>{#if run.failed > 0}<span class="text-status-error"> ·{run.failed}</span>{/if}
+											>{#if run.failed > 0}<span class="text-status-error">
+													·{run.failed}</span
+												>{/if}
 										</span>
 									</div>
 								{:else}

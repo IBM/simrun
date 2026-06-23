@@ -84,9 +84,9 @@
 		mode="edit"
 		type={scenario.type}
 		initialName={scenario.name}
-		initialScenarios={initialScenarios}
-		initialTarget={initialTarget}
-		initialYaml={initialYaml}
+		{initialScenarios}
+		{initialTarget}
+		{initialYaml}
 		initialBuilderSupported={builderSupported}
 		onsave={handleSave}
 		oncancel={handleCancel}

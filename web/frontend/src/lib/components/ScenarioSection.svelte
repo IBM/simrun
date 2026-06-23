@@ -283,7 +283,6 @@
 			'Select collector'
 	);
 
-
 	function handleCollectionIndexChange(e: Event) {
 		onupdate({
 			...scenario,
@@ -344,7 +343,10 @@
 					>{scenario.pack}{selectedId ? ` / ${selectedId}` : ''}</span
 				>
 				{#if isInject}
-					<Badge variant="outline" class="text-[10px] px-1.5 py-0 gap-1 bg-attr-asset/10 text-attr-asset border-attr-asset/30">
+					<Badge
+						variant="outline"
+						class="text-[10px] px-1.5 py-0 gap-1 bg-attr-asset/10 text-attr-asset border-attr-asset/30"
+					>
 						<SyringeIcon class="size-2.5" />
 						inject
 					</Badge>
@@ -360,12 +362,12 @@
 				aria-label="Enable scenario"
 			/>
 			<Button variant="ghost" size="sm" onclick={onduplicate} aria-label="Duplicate scenario">
-				<CopyIcon size={16} class="mr-1" />
+				<CopyIcon data-icon="inline-start" />
 				Duplicate
 			</Button>
 			{#if canRemove}
 				<Button variant="ghost" size="sm" onclick={onremove} aria-label="Remove scenario">
-					<Trash2Icon size={16} class="mr-1" />
+					<Trash2Icon data-icon="inline-start" />
 					Remove
 				</Button>
 			{/if}
@@ -431,7 +433,7 @@
 										disabled={!scenario.pack || loadingManifest}
 									>
 										<span class="truncate">{comboboxLabel}</span>
-										<ChevronsUpDownIcon class="ml-2 shrink-0 opacity-50" size={16} />
+										<ChevronsUpDownIcon data-icon="inline-end" class="opacity-50" />
 									</Button>
 								{/snippet}
 							</Popover.Trigger>
@@ -463,9 +465,12 @@
 															)}
 															size={16}
 														/>
-														<ShieldAlertIcon class="mr-1.5 size-3.5 text-muted-foreground shrink-0" />
+														<ShieldAlertIcon
+															class="mr-1.5 size-3.5 text-muted-foreground shrink-0"
+														/>
 														<span class="truncate"
-															>{sim.name} <span class="text-muted-foreground">({sim.id})</span></span
+															>{sim.name}
+															<span class="text-muted-foreground">({sim.id})</span></span
 														>
 													</Command.Item>
 												{/each}
@@ -496,7 +501,8 @@
 														/>
 														<SyringeIcon class="mr-1.5 size-3.5 text-attr-asset shrink-0" />
 														<span class="truncate"
-															>{tmpl.name} <span class="text-muted-foreground">({tmpl.id})</span></span
+															>{tmpl.name}
+															<span class="text-muted-foreground">({tmpl.id})</span></span
 														>
 													</Command.Item>
 												{/each}
@@ -518,42 +524,48 @@
 							<div>
 								<Label class="text-xs mb-1 block">Datastream</Label>
 								<div class="flex items-center gap-0">
-									<span class="shrink-0 rounded-l-md border border-r-0 border-input bg-muted px-2.5 py-2 text-xs font-mono text-muted-foreground">logs-</span>
+									<span
+										class="shrink-0 rounded-l-md border border-r-0 border-input bg-muted px-2.5 py-2 text-xs font-mono text-muted-foreground"
+										>logs-</span
+									>
 									<Input
 										placeholder="e.g., okta.system"
 										value={scenario.injectIndex}
 										oninput={handleInjectIndexChange}
 										class="font-mono text-sm rounded-l-none border-l-0 rounded-r-none"
 									/>
-									<span class="shrink-0 rounded-r-md border border-l-0 border-input bg-muted px-2.5 py-2 text-xs font-mono text-muted-foreground">-default</span>
+									<span
+										class="shrink-0 rounded-r-md border border-l-0 border-input bg-muted px-2.5 py-2 text-xs font-mono text-muted-foreground"
+										>-default</span
+									>
 								</div>
 							</div>
 						</div>
 
 						<!-- Template Variables -->
-					{#if scenario.templateVars.length > 0}
-						<Separator />
-						<div class="space-y-3">
-							<h4 class="text-sm font-medium">Template Variables</h4>
-							{#each scenario.templateVars as tvar, vi}
-								<div class="flex items-start gap-2">
-									<div class="grid flex-1 gap-2 sm:grid-cols-2">
-										<Input
-											value={tvar.key}
-											disabled
-											class="font-mono text-xs"
-										/>
-										<Input
-											placeholder={selectedTemplate?.vars?.[tvar.key] || 'Value'}
-											value={tvar.value}
-											oninput={(e) =>
-												handleTemplateVarChange(vi, 'value', (e.target as HTMLInputElement).value)}
-										/>
+						{#if scenario.templateVars.length > 0}
+							<Separator />
+							<div class="space-y-3">
+								<h4 class="text-sm font-medium">Template Variables</h4>
+								{#each scenario.templateVars as tvar, vi}
+									<div class="flex items-start gap-2">
+										<div class="grid flex-1 gap-2 sm:grid-cols-2">
+											<Input value={tvar.key} disabled class="font-mono text-xs" />
+											<Input
+												placeholder={selectedTemplate?.vars?.[tvar.key] || 'Value'}
+												value={tvar.value}
+												oninput={(e) =>
+													handleTemplateVarChange(
+														vi,
+														'value',
+														(e.target as HTMLInputElement).value
+													)}
+											/>
+										</div>
 									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
+								{/each}
+							</div>
+						{/if}
 
 						<!-- Inject: Static indicators -->
 						<Separator />
@@ -561,7 +573,7 @@
 							<div class="flex items-center justify-between">
 								<h4 class="text-sm font-medium">Indicators</h4>
 								<Button variant="outline" size="sm" onclick={addStaticIndicator}>
-									<PlusIcon size={14} class="mr-1" />
+									<PlusIcon data-icon="inline-start" />
 									Add Static Indicator
 								</Button>
 							</div>
@@ -570,8 +582,7 @@
 									<Input
 										placeholder="e.g., 192.168.1.1"
 										value={indicator}
-										oninput={(e) =>
-											updateStaticIndicator(si, (e.target as HTMLInputElement).value)}
+										oninput={(e) => updateStaticIndicator(si, (e.target as HTMLInputElement).value)}
 										class="flex-1"
 									/>
 									<Button
@@ -598,7 +609,7 @@
 								<div class="flex items-center justify-between">
 									<h4 class="text-sm font-medium">Parameters</h4>
 									<Button variant="outline" size="sm" onclick={addParam}>
-										<PlusIcon size={14} class="mr-1" />
+										<PlusIcon data-icon="inline-start" />
 										Add Param
 									</Button>
 								</div>
@@ -679,7 +690,7 @@
 									<div class="flex items-center justify-between">
 										<Label class="text-xs">Static Indicators</Label>
 										<Button variant="outline" size="sm" onclick={addStaticIndicator}>
-											<PlusIcon size={14} class="mr-1" />
+											<PlusIcon data-icon="inline-start" />
 											Add
 										</Button>
 									</div>
@@ -710,7 +721,7 @@
 								<div class="flex items-center justify-between">
 									<h4 class="text-sm font-medium">Indicators</h4>
 									<Button variant="outline" size="sm" onclick={addStaticIndicator}>
-										<PlusIcon size={14} class="mr-1" />
+										<PlusIcon data-icon="inline-start" />
 										Add Static Indicator
 									</Button>
 								</div>
@@ -791,7 +802,7 @@
 										<div class="flex items-center justify-between">
 											<Label class="text-xs">Additional Query Fields</Label>
 											<Button variant="outline" size="sm" onclick={addCollectionField}>
-												<PlusIcon size={14} class="mr-1" />
+												<PlusIcon data-icon="inline-start" />
 												Add Field
 											</Button>
 										</div>
@@ -807,11 +818,7 @@
 													placeholder="Field name (e.g., cloud.account.id)"
 													value={field.key}
 													oninput={(e) =>
-														updateCollectionField(
-															fi,
-															'key',
-															(e.target as HTMLInputElement).value
-														)}
+														updateCollectionField(fi, 'key', (e.target as HTMLInputElement).value)}
 													class="flex-1 font-mono text-xs"
 												/>
 												<span class="text-muted-foreground">=</span>
@@ -844,28 +851,28 @@
 				{/if}
 
 				{#if scenarioFileType === 'standard'}
-				<Separator />
+					<Separator />
 
-				<div class="space-y-3">
-					<div class="flex items-center justify-between">
-						<h4 class="text-sm font-medium">Expectations</h4>
-						<Button variant="outline" size="sm" onclick={addExpectation}>
-							<PlusIcon size={14} class="mr-1" />
-							Add Expectation
-						</Button>
+					<div class="space-y-3">
+						<div class="flex items-center justify-between">
+							<h4 class="text-sm font-medium">Expectations</h4>
+							<Button variant="outline" size="sm" onclick={addExpectation}>
+								<PlusIcon data-icon="inline-start" />
+								Add Expectation
+							</Button>
+						</div>
+
+						{#each scenario.expectations as expectation, expIndex}
+							<ExpectationRow
+								{expectation}
+								{elasticRules}
+								onupdate={(exp) => handleExpectationUpdate(expIndex, exp)}
+								onremove={() => handleExpectationRemove(expIndex)}
+								canRemove={scenario.expectations.length > 1}
+							/>
+						{/each}
 					</div>
-
-					{#each scenario.expectations as expectation, expIndex}
-						<ExpectationRow
-							{expectation}
-							{elasticRules}
-							onupdate={(exp) => handleExpectationUpdate(expIndex, exp)}
-							onremove={() => handleExpectationRemove(expIndex)}
-							canRemove={scenario.expectations.length > 1}
-						/>
-					{/each}
-				</div>
-			{/if}
+				{/if}
 			</div>
 		</div>
 	</div>

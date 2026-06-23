@@ -116,147 +116,148 @@
 	}
 </script>
 
-
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-			<h1 class="text-2xl font-bold">Connectors</h1>
-			<Button onclick={() => (createDialogOpen = true)}>New Connector</Button>
+		<h1 class="text-2xl font-bold">Connectors</h1>
+		<Button onclick={() => (createDialogOpen = true)}>New Connector</Button>
+	</div>
+
+	{#if error}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{error}</Alert.Description>
+		</Alert.Root>
+	{/if}
+
+	{#if loading}
+		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+			{#each Array(3) as _}
+				<Skeleton class="h-48 w-full rounded-xl" />
+			{/each}
 		</div>
-
-		{#if error}
-			<Alert.Root variant="destructive">
-				<Alert.Description>{error}</Alert.Description>
-			</Alert.Root>
-		{/if}
-
-		{#if loading}
-			<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				{#each Array(3) as _}
-					<Skeleton class="h-48 w-full rounded-xl" />
-				{/each}
-			</div>
-		{:else if $connectors.length === 0}
-			<Empty.Root>
-				<Empty.Header>
-					<Empty.Media variant="icon">
-						<PlugIcon />
-					</Empty.Media>
-					<Empty.Title>No connectors configured</Empty.Title>
-					<Empty.Description>
-						Connect to external systems like Elastic Security or cloud providers for attack
-						simulation and alert matching.
-					</Empty.Description>
-				</Empty.Header>
-				<Empty.Content>
-					<Button onclick={() => (createDialogOpen = true)}>New Connector</Button>
-				</Empty.Content>
-			</Empty.Root>
-		{:else}
-			<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				{#each $connectors as connector, i (connector.id)}
-					<div
-						role="button"
-						tabindex="0"
-						aria-label="View {connector.name} details"
-						onclick={() => openDetail(connector)}
-						onkeydown={(e) => handleCardKeydown(e, connector)}
-						class="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-card p-5 text-left transition-all duration-200 animate-fade-up
+	{:else if $connectors.length === 0}
+		<Empty.Root>
+			<Empty.Header>
+				<Empty.Media variant="icon">
+					<PlugIcon />
+				</Empty.Media>
+				<Empty.Title>No connectors configured</Empty.Title>
+				<Empty.Description>
+					Connect to external systems like Elastic Security or cloud providers for attack simulation
+					and alert matching.
+				</Empty.Description>
+			</Empty.Header>
+			<Empty.Content>
+				<Button onclick={() => (createDialogOpen = true)}>New Connector</Button>
+			</Empty.Content>
+		</Empty.Root>
+	{:else}
+		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+			{#each $connectors as connector, i (connector.id)}
+				<div
+					role="button"
+					tabindex="0"
+					aria-label="View {connector.name} details"
+					onclick={() => openDetail(connector)}
+					onkeydown={(e) => handleCardKeydown(e, connector)}
+					class="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-card p-5 text-left transition-all duration-200 animate-fade-up
 							hover:-translate-y-0.5 hover:shadow-sm
 							focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						style="animation-delay: {i * 60}ms"
-					>
-						<!-- accent line on the left edge, draws down on hover -->
-						<span
-							class="absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-primary transition-transform duration-300 ease-out group-hover:scale-y-100"
-						></span>
+					style="animation-delay: {i * 60}ms"
+				>
+					<!-- accent line on the left edge, draws down on hover -->
+					<span
+						class="absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-primary transition-transform duration-300 ease-out group-hover:scale-y-100"
+					></span>
 
-						<!-- header -->
-						<div class="flex items-start gap-3">
-							<div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-								{#if connector.type === 'elastic'}
-									<ElasticLogo size={28} />
-								{:else if connector.type === 'ssh'}
-									<TerminalIcon size={20} class="text-muted-foreground" />
-								{:else}
-									<CloudIcon size={20} class="text-muted-foreground" />
-								{/if}
-							</div>
-							<div class="min-w-0 flex-1">
-								<h3 class="truncate text-base font-semibold tracking-tight">{connector.name}</h3>
-								<p class="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-									{connector.type}{#if connector.isDefault}<span class="normal-case"> · Default</span>{/if}
-								</p>
-							</div>
-							<Badge variant={connector.enabled ? 'default' : 'secondary'} class="shrink-0">
-								{connector.enabled ? 'Enabled' : 'Disabled'}
-							</Badge>
-							<DropdownMenu.Root>
-								<DropdownMenu.Trigger>
-									{#snippet child({ props })}
-										<button
-											{...props}
-											class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-											aria-label="Connector actions"
-											onclick={(e) => e.stopPropagation()}
-										>
-											<MoreVerticalIcon class="size-4" />
-										</button>
-									{/snippet}
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content align="end" class="w-36">
-									<DropdownMenu.Item onclick={() => openEdit(connector)}>
-										<PencilIcon class="size-4" />
-										Edit
-									</DropdownMenu.Item>
-									<DropdownMenu.Separator />
-									<DropdownMenu.Item variant="destructive" onclick={() => openDelete(connector)}>
-										<Trash2Icon class="size-4" />
-										Delete
-									</DropdownMenu.Item>
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
+					<!-- header -->
+					<div class="flex items-start gap-3">
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+							{#if connector.type === 'elastic'}
+								<ElasticLogo size={28} />
+							{:else if connector.type === 'ssh'}
+								<TerminalIcon size={20} class="text-muted-foreground" />
+							{:else}
+								<CloudIcon size={20} class="text-muted-foreground" />
+							{/if}
 						</div>
-
-						<!-- body -->
-						{#if connector.description}
-							<p class="mt-4 line-clamp-2 text-sm text-muted-foreground">
-								{connector.description}
+						<div class="min-w-0 flex-1">
+							<h3 class="truncate text-base font-semibold tracking-tight">{connector.name}</h3>
+							<p class="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+								{connector.type}{#if connector.isDefault}<span class="normal-case">
+										· Default</span
+									>{/if}
 							</p>
-						{/if}
-						{#if getConnectorCardInfo(connector)}
-							<p class="mt-3 truncate font-mono text-xs text-muted-foreground">
-								{getConnectorCardInfo(connector)}
-							</p>
-						{/if}
-						{#if connectorFeatures[connector.type]}
-							<div class="mt-3 flex flex-wrap gap-1.5">
-								{#each connectorFeatures[connector.type].slice(0, 5) as feature}
-									<span
-										class="rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.68rem] font-medium text-primary"
+						</div>
+						<Badge variant={connector.enabled ? 'default' : 'secondary'} class="shrink-0">
+							{connector.enabled ? 'Enabled' : 'Disabled'}
+						</Badge>
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<button
+										{...props}
+										class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+										aria-label="Connector actions"
+										onclick={(e) => e.stopPropagation()}
 									>
-										{feature}
-									</span>
-								{/each}
-							</div>
-						{/if}
-
-						<!-- spacer: keeps a minimum gap above the divider, grows to bottom-align footer -->
-						<div class="min-h-5 flex-1"></div>
-
-						<!-- footer -->
-						<div class="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
-							<span class="truncate">Secrets: {getSecretGroupName(connector.secretGroupId)}</span>
-							<span
-								class="ml-auto inline-flex shrink-0 items-center gap-1 font-medium text-primary opacity-0 transition-all duration-200 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100"
-							>
-								View details
-								<ArrowRightIcon class="size-3.5" />
-							</span>
-						</div>
+										<MoreVerticalIcon class="size-4" />
+									</button>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content align="end" class="w-36">
+								<DropdownMenu.Item onclick={() => openEdit(connector)}>
+									<PencilIcon class="size-4" />
+									Edit
+								</DropdownMenu.Item>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item variant="destructive" onclick={() => openDelete(connector)}>
+									<Trash2Icon class="size-4" />
+									Delete
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
 					</div>
-				{/each}
-			</div>
-		{/if}
+
+					<!-- body -->
+					{#if connector.description}
+						<p class="mt-4 line-clamp-2 text-sm text-muted-foreground">
+							{connector.description}
+						</p>
+					{/if}
+					{#if getConnectorCardInfo(connector)}
+						<p class="mt-3 truncate font-mono text-xs text-muted-foreground">
+							{getConnectorCardInfo(connector)}
+						</p>
+					{/if}
+					{#if connectorFeatures[connector.type]}
+						<div class="mt-3 flex flex-wrap gap-1.5">
+							{#each connectorFeatures[connector.type].slice(0, 5) as feature}
+								<span
+									class="rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.68rem] font-medium text-primary"
+								>
+									{feature}
+								</span>
+							{/each}
+						</div>
+					{/if}
+
+					<!-- spacer: keeps a minimum gap above the divider, grows to bottom-align footer -->
+					<div class="min-h-5 flex-1"></div>
+
+					<!-- footer -->
+					<div class="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
+						<span class="truncate">Secrets: {getSecretGroupName(connector.secretGroupId)}</span>
+						<span
+							class="ml-auto inline-flex shrink-0 items-center gap-1 font-medium text-primary opacity-0 transition-all duration-200 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100"
+						>
+							View details
+							<ArrowRightIcon class="size-3.5" />
+						</span>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </div>
 
 <ConnectorDetail

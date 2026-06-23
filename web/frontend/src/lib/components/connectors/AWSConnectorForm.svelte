@@ -68,7 +68,5 @@
 			{/each}
 		</Select.Content>
 	</Select.Root>
-	<p class="text-xs text-muted-foreground">
-		Select a secret group containing SR_AWS_EXTERNAL_ID
-	</p>
+	<p class="text-xs text-muted-foreground">Select a secret group containing SR_AWS_EXTERNAL_ID</p>
 </div>

@@ -124,7 +124,9 @@
 
 	<!-- header -->
 	<div class="flex items-start gap-3">
-		<div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+		<div
+			class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+		>
 			<PackageIcon class="size-5" />
 		</div>
 		<div class="min-w-0 flex-1">
@@ -249,7 +251,8 @@
 	<div class="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
 		{#if pack.installedBy && pack.installedBy !== 'anonymous'}
 			<Tooltip.Root>
-				<Tooltip.Trigger class="cursor-default">{formatUserEmail(pack.installedBy)}</Tooltip.Trigger>
+				<Tooltip.Trigger class="cursor-default">{formatUserEmail(pack.installedBy)}</Tooltip.Trigger
+				>
 				<Tooltip.Content>{pack.installedBy}</Tooltip.Content>
 			</Tooltip.Root>
 			<span aria-hidden="true">·</span>

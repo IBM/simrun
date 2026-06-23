@@ -24,7 +24,10 @@
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
 								<span class="text-sm font-medium truncate">{scenario.name}</span>
-								<Badge variant={scenarioTypeVariant(scenario.type)} class="text-[10px] px-1.5 py-0 shrink-0">
+								<Badge
+									variant={scenarioTypeVariant(scenario.type)}
+									class="text-[10px] px-1.5 py-0 shrink-0"
+								>
 									{scenario.type || 'standard'}
 								</Badge>
 							</div>

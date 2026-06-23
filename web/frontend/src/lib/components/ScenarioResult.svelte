@@ -39,11 +39,7 @@
 
 	// Timeline node accent driven by terminal status.
 	const nodeState = $derived(
-		entry.status === 'completed' && result
-			? result.isSuccess
-				? 'pass'
-				: 'fail'
-			: entry.status
+		entry.status === 'completed' && result ? (result.isSuccess ? 'pass' : 'fail') : entry.status
 	);
 </script>
 
@@ -86,7 +82,9 @@
 					/>
 					<div class="flex min-w-0 flex-col gap-0.5">
 						<span class="truncate text-sm font-medium">{entry.name}</span>
-						<span class="flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted-foreground">
+						<span
+							class="flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted-foreground"
+						>
 							{#if result}
 								<span>{result.executorName}</span>
 								{#if result.simulationId}
@@ -197,7 +195,7 @@
 								<span class="text-sm">{result.collectedDocCount} documents</span>
 								<a href={getCollectedLogsUrl(result.id)} download>
 									<Button variant="outline" size="sm" class="h-7 px-2">
-										<DownloadIcon class="mr-1 h-3 w-3" />
+										<DownloadIcon data-icon="inline-start" />
 										Download NDJSON
 									</Button>
 								</a>
@@ -244,7 +242,9 @@
 										>
 											{assertion.passed ? 'PASS' : 'MISSED'}
 										</span>
-										<span class="font-mono text-xs text-muted-foreground">[{assertion.matcherType}]</span>
+										<span class="font-mono text-xs text-muted-foreground"
+											>[{assertion.matcherType}]</span
+										>
 										<span>{assertion.alertName}</span>
 									</div>
 								{/each}
