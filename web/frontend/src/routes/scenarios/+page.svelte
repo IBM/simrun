@@ -250,6 +250,7 @@
 	async function handleDelete() {
 		if (!deleteTarget) return;
 		deleting = true;
+		error = '';
 		try {
 			await deleteScenario(deleteTarget.id);
 			// If deleting the last row on a page > 1 leaves it empty, step back.
