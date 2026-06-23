@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/IBM/simrun/compare/v0.2.1...v0.3.0) (2026-06-23)
+
+
+### Features
+
+* **ui:** update assessment and rule coverage pages layout ([#13](https://github.com/IBM/simrun/issues/13)) ([4f79fae](https://github.com/IBM/simrun/commit/4f79fae7067a92b009257b3561af2ce178ee7ccf))
+
 ## [0.2.1](https://github.com/IBM/simrun/compare/v0.2.0...v0.2.1) (2026-06-23)
 
 
