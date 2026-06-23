@@ -49,11 +49,9 @@
 		const logDaysInt = Math.trunc(Number(logDays));
 		const assessmentDaysInt = Math.trunc(Number(assessmentDays));
 
-		// Validate before sending anything. The backend also rejects days < 1
-		// with HTTP 400, but checking up front avoids a partial save: keys are
-		// PUT one at a time, so a rejected day field could otherwise leave an
-		// already-persisted enable toggle behind while the dialog shows an error.
-		if (logDaysInt < 1 || assessmentDaysInt < 1) {
+		// Validate up front to avoid a partial save (keys are PUT one at a time).
+		// Only check a section's days when its toggle is on.
+		if ((logEnabled && logDaysInt < 1) || (assessmentEnabled && assessmentDaysInt < 1)) {
 			error = 'Retention periods must be at least 1 day.';
 			return;
 		}
@@ -61,12 +59,18 @@
 		saving = true;
 
 		// Only PUT keys whose value changed, one call each (matches the page's
-		// existing per-key config writes).
+		// existing per-key config writes). For a disabled section, keep the
+		// currently stored days value so an empty/invalid greyed-out field is
+		// never PUT (the backend would reject it with HTTP 400).
 		const next: Record<string, unknown> = {
 			assessment_log_retention_enabled: logEnabled,
-			assessment_log_retention_days: logDaysInt,
+			assessment_log_retention_days: logEnabled
+				? logDaysInt
+				: numOf(config['assessment_log_retention_days'], 7),
 			assessment_retention_enabled: assessmentEnabled,
-			assessment_retention_days: assessmentDaysInt
+			assessment_retention_days: assessmentEnabled
+				? assessmentDaysInt
+				: numOf(config['assessment_retention_days'], 30)
 		};
 
 		const changed = Object.entries(next).filter(([key, value]) => value !== config[key]);
