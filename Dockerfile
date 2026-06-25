@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build stage ---
-FROM golang:1.25.10 AS builder
+FROM golang:1.25.11 AS builder
 
 WORKDIR /build
 
@@ -22,7 +22,8 @@ RUN rm -rf internal/web/frontend && \
 
 # Build the server binary with the embedded frontend
 ARG version=unknown
-RUN CGO_ENABLED=0 go build \
+RUN git config --global --add safe.directory /build && \
+    CGO_ENABLED=0 go build \
     -ldflags="-w -s \
       -X github.com/IBM/simrun/internal/version.Version=${version} \
       -X github.com/IBM/simrun/internal/version.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
