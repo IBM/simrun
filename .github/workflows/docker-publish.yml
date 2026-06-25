@@ -199,6 +199,6 @@ jobs:
       - name: Sign and attest
         run: |
           REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}@${{ needs.merge.outputs.digest }}"
-          cosign sign --yes --recursive --registry-referrers-mode oci-1-1 "${REF}"
+          cosign sign --yes --recursive "${REF}"
           cosign attest --yes \
             --predicate sbom.spdx.json --type spdxjson "${REF}"
