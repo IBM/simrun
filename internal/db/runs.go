@@ -46,13 +46,17 @@ type RunStore interface {
 
 // Run represents a single simrun execution.
 type Run struct {
-	ID             uuid.UUID  `json:"id"`
-	Status         string     `json:"status"`
-	StartTime      time.Time  `json:"startTime"`
-	EndTime        *time.Time `json:"endTime,omitempty"`
-	Total          int        `json:"total"`
-	Succeeded      int        `json:"succeeded"`
-	Failed         int        `json:"failed"`
+	ID        uuid.UUID  `json:"id"`
+	Status    string     `json:"status"`
+	StartTime time.Time  `json:"startTime"`
+	EndTime   *time.Time `json:"endTime,omitempty"`
+	Total     int        `json:"total"`
+	Succeeded int        `json:"succeeded"`
+	Failed    int        `json:"failed"`
+	// Errors counts scenarios that failed during execution (warmup, detonation,
+	// or matching infrastructure) rather than by missing an expected alert. It is
+	// a subset of Failed and is derived from scenario_results.errored.
+	Errors         int        `json:"errors"`
 	AssessmentID   *uuid.UUID `json:"assessmentId,omitempty"`
 	AssessmentName *string    `json:"assessmentName,omitempty"`
 	AssessmentType *string    `json:"assessmentType,omitempty"`
@@ -64,12 +68,15 @@ type Run struct {
 
 // ScenarioResult represents the result of a single scenario execution.
 type ScenarioResult struct {
-	ID                uuid.UUID       `json:"id"`
-	RunID             uuid.UUID       `json:"runId"`
-	Name              string          `json:"name"`
-	Status            string          `json:"status"`
-	Phase             *string         `json:"phase,omitempty"`
-	IsSuccess         *bool           `json:"isSuccess"`
+	ID        uuid.UUID `json:"id"`
+	RunID     uuid.UUID `json:"runId"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	Phase     *string   `json:"phase,omitempty"`
+	IsSuccess *bool     `json:"isSuccess"`
+	// Errored is true when the scenario failed during execution rather than by
+	// missing an expected alert (see Run.Errors).
+	Errored           bool            `json:"errored"`
 	ErrorMessage      string          `json:"errorMessage,omitempty"`
 	DurationSecs      float64         `json:"durationSecs"`
 	MatchingDurSecs   float64         `json:"matchingDurSecs"`
@@ -139,6 +146,7 @@ func (s *runStore) Create(ctx context.Context, run *Run) error {
 func (s *runStore) Get(ctx context.Context, id uuid.UUID) (*Run, error) {
 	row := s.pool.QueryRow(ctx,
 		`SELECT r.id, r.status, r.start_time, r.end_time, r.total, r.succeeded, r.failed,
+				(SELECT COUNT(*) FROM scenario_results sr WHERE sr.run_id = r.id AND sr.errored) AS errors,
 				r.assessment_id, a.name, a.type,
 				r.schedule_id, r.schedule_name, r.created_by, r.created_at
 		 FROM runs r
@@ -146,7 +154,7 @@ func (s *runStore) Get(ctx context.Context, id uuid.UUID) (*Run, error) {
 		 WHERE r.id = $1`, id,
 	)
 	var run Run
-	err := row.Scan(&run.ID, &run.Status, &run.StartTime, &run.EndTime, &run.Total, &run.Succeeded, &run.Failed,
+	err := row.Scan(&run.ID, &run.Status, &run.StartTime, &run.EndTime, &run.Total, &run.Succeeded, &run.Failed, &run.Errors,
 		&run.AssessmentID, &run.AssessmentName, &run.AssessmentType,
 		&run.ScheduleID, &run.ScheduleName, &run.CreatedBy, &run.CreatedAt)
 	if err != nil {
@@ -159,6 +167,7 @@ func (s *runStore) List(ctx context.Context, filters ListRunsFilters, limit, off
 	where, args := buildRunsWhere(filters)
 	rows, err := s.pool.Query(ctx,
 		`SELECT r.id, r.status, r.start_time, r.end_time, r.total, r.succeeded, r.failed,
+				(SELECT COUNT(*) FROM scenario_results sr WHERE sr.run_id = r.id AND sr.errored) AS errors,
 				r.assessment_id, a.name, a.type,
 				r.schedule_id, r.schedule_name, r.created_by, r.created_at,
 				COUNT(*) OVER() AS total_count
@@ -178,7 +187,7 @@ func (s *runStore) List(ctx context.Context, filters ListRunsFilters, limit, off
 	for rows.Next() {
 		var run Run
 		var total int
-		if err := rows.Scan(&run.ID, &run.Status, &run.StartTime, &run.EndTime, &run.Total, &run.Succeeded, &run.Failed,
+		if err := rows.Scan(&run.ID, &run.Status, &run.StartTime, &run.EndTime, &run.Total, &run.Succeeded, &run.Failed, &run.Errors,
 			&run.AssessmentID, &run.AssessmentName, &run.AssessmentType,
 			&run.ScheduleID, &run.ScheduleName, &run.CreatedBy, &run.CreatedAt, &total); err != nil {
 			return RunPage{}, err
@@ -267,9 +276,9 @@ func (s *runStore) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (s *runStore) AddScenarioResult(ctx context.Context, runID uuid.UUID, result *ScenarioResult) error {
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO scenario_results (run_id, name, status, is_success, error_message, duration_secs, matching_dur_secs, time_executed, executor_name, executor_type, execution_id, simulation_id, expectations, indicators, metadata, collected_log_path, collected_doc_count, discovered_alerts)
-		 VALUES ($1, $2, 'completed', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-		runID, result.Name, result.IsSuccess, result.ErrorMessage, result.DurationSecs,
+		`INSERT INTO scenario_results (run_id, name, status, is_success, errored, error_message, duration_secs, matching_dur_secs, time_executed, executor_name, executor_type, execution_id, simulation_id, expectations, indicators, metadata, collected_log_path, collected_doc_count, discovered_alerts)
+		 VALUES ($1, $2, 'completed', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+		runID, result.Name, result.IsSuccess, result.Errored, result.ErrorMessage, result.DurationSecs,
 		result.MatchingDurSecs, result.TimeExecuted, result.ExecutorName, result.ExecutorType,
 		result.ExecutionID, result.SimulationID, result.Expectations, result.Indicators, result.Metadata,
 		result.CollectedLogPath, result.CollectedDocCount, result.DiscoveredAlerts,
@@ -279,7 +288,7 @@ func (s *runStore) AddScenarioResult(ctx context.Context, runID uuid.UUID, resul
 
 func (s *runStore) GetScenarioResults(ctx context.Context, runID uuid.UUID) ([]ScenarioResult, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, run_id, name, status, phase, is_success,
+		`SELECT id, run_id, name, status, phase, is_success, errored,
 			COALESCE(error_message, ''), COALESCE(duration_secs, 0), COALESCE(matching_dur_secs, 0),
 			time_executed,
 			COALESCE(executor_name, ''), COALESCE(executor_type, ''), COALESCE(execution_id, ''), COALESCE(simulation_id, ''),
@@ -295,7 +304,7 @@ func (s *runStore) GetScenarioResults(ctx context.Context, runID uuid.UUID) ([]S
 	results := []ScenarioResult{}
 	for rows.Next() {
 		var r ScenarioResult
-		if err := rows.Scan(&r.ID, &r.RunID, &r.Name, &r.Status, &r.Phase, &r.IsSuccess, &r.ErrorMessage,
+		if err := rows.Scan(&r.ID, &r.RunID, &r.Name, &r.Status, &r.Phase, &r.IsSuccess, &r.Errored, &r.ErrorMessage,
 			&r.DurationSecs, &r.MatchingDurSecs, &r.TimeExecuted, &r.ExecutorName,
 			&r.ExecutorType, &r.ExecutionID, &r.SimulationID, &r.Expectations, &r.Indicators, &r.Metadata,
 			&r.CollectedLogPath, &r.CollectedDocCount, &r.DiscoveredAlerts, &r.CreatedAt); err != nil {
@@ -308,7 +317,7 @@ func (s *runStore) GetScenarioResults(ctx context.Context, runID uuid.UUID) ([]S
 
 func (s *runStore) GetScenarioResult(ctx context.Context, id uuid.UUID) (*ScenarioResult, error) {
 	row := s.pool.QueryRow(ctx,
-		`SELECT id, run_id, name, status, phase, is_success,
+		`SELECT id, run_id, name, status, phase, is_success, errored,
 			COALESCE(error_message, ''), COALESCE(duration_secs, 0), COALESCE(matching_dur_secs, 0),
 			time_executed,
 			COALESCE(executor_name, ''), COALESCE(executor_type, ''), COALESCE(execution_id, ''), COALESCE(simulation_id, ''),
@@ -316,7 +325,7 @@ func (s *runStore) GetScenarioResult(ctx context.Context, id uuid.UUID) (*Scenar
 		 FROM scenario_results WHERE id = $1`, id,
 	)
 	var r ScenarioResult
-	err := row.Scan(&r.ID, &r.RunID, &r.Name, &r.Status, &r.Phase, &r.IsSuccess, &r.ErrorMessage,
+	err := row.Scan(&r.ID, &r.RunID, &r.Name, &r.Status, &r.Phase, &r.IsSuccess, &r.Errored, &r.ErrorMessage,
 		&r.DurationSecs, &r.MatchingDurSecs, &r.TimeExecuted, &r.ExecutorName,
 		&r.ExecutorType, &r.ExecutionID, &r.SimulationID, &r.Expectations, &r.Indicators, &r.Metadata,
 		&r.CollectedLogPath, &r.CollectedDocCount, &r.DiscoveredAlerts, &r.CreatedAt)
@@ -366,12 +375,13 @@ func (s *runStore) CompleteScenarioResult(ctx context.Context, id uuid.UUID, res
 			is_success = $2, error_message = $3, duration_secs = $4, matching_dur_secs = $5,
 			time_executed = $6, executor_name = $7, executor_type = $8, execution_id = $9,
 			simulation_id = $10, expectations = $11, indicators = $12, metadata = $13,
-			collected_log_path = $14, collected_doc_count = $15, discovered_alerts = $16
+			collected_log_path = $14, collected_doc_count = $15, discovered_alerts = $16,
+			errored = $17
 		 WHERE id = $1`,
 		id, result.IsSuccess, result.ErrorMessage, result.DurationSecs, result.MatchingDurSecs,
 		result.TimeExecuted, result.ExecutorName, result.ExecutorType, result.ExecutionID,
 		result.SimulationID, result.Expectations, result.Indicators, result.Metadata,
-		result.CollectedLogPath, result.CollectedDocCount, result.DiscoveredAlerts,
+		result.CollectedLogPath, result.CollectedDocCount, result.DiscoveredAlerts, result.Errored,
 	)
 	return err
 }

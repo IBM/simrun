@@ -4,7 +4,6 @@
 	import { toast } from 'svelte-sonner';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -16,12 +15,10 @@
 	import { listRuns, deleteRun, getConfig, type RunFilters } from '$lib/api/client';
 	import { goto } from '$app/navigation';
 	import {
-		statusVariant,
 		formatDuration,
 		formatUserEmail,
 		formatRelativeTime,
-		formatTime,
-		scenarioTypeVariant
+		formatTime
 	} from '$lib/utils/format';
 	import type { Run, ScenarioType, AppConfig } from '$lib/types';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -34,6 +31,9 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	const PAGE_SIZES = [25, 50, 100] as const;
 	const SCENARIO_TYPES: ScenarioType[] = ['standard', 'explore', 'collect'];
@@ -431,45 +431,76 @@
 			<Table.Root>
 				<Table.Header class="bg-muted">
 					<Table.Row>
-						<Table.Head>ID</Table.Head>
-						<Table.Head>Status</Table.Head>
-						<Table.Head>Assessment</Table.Head>
-						<Table.Head>Type</Table.Head>
-						<Table.Head class="w-[200px]">Results</Table.Head>
-						<Table.Head>Started By</Table.Head>
-						<Table.Head>Started</Table.Head>
-						<Table.Head>Duration</Table.Head>
+						<Table.Head class="pl-4">Assessment</Table.Head>
+						<Table.Head class="w-[220px]">Results</Table.Head>
+						<Table.Head class="w-[120px] text-right">Duration</Table.Head>
 						<Table.Head class="w-10"></Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
 					{#each pageRuns as run (run.id)}
 						{@const pending = Math.max(0, run.total - run.succeeded - run.failed)}
+						{@const hasErrors = run.status !== 'running' && run.errors > 0}
+						{@const statusLabel =
+							run.status === 'running'
+								? 'Running'
+								: hasErrors
+									? `${run.errors} execution error${run.errors === 1 ? '' : 's'}`
+									: 'Completed'}
 						<Table.Row
 							class="cursor-pointer hover:bg-accent/50 transition-colors"
 							onclick={() => goto(`/runs/${run.id}`)}
 						>
-							<Table.Cell class="font-mono text-xs">
-								{run.id.slice(0, 8)}
-							</Table.Cell>
-							<Table.Cell>
-								<Badge variant={statusVariant(run.status)} class="gap-1.5">
-									{#if run.status === 'running'}
-										<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"
-										></span>
-									{/if}
-									{run.status}
-								</Badge>
-							</Table.Cell>
-							<Table.Cell class="max-w-[200px] truncate">
-								{run.assessmentName || '--'}
-							</Table.Cell>
-							<Table.Cell>
-								{#if run.assessmentType}
-									<Badge variant={scenarioTypeVariant(run.assessmentType)}>{run.assessmentType}</Badge>
-								{:else}
-									<span class="text-muted-foreground text-xs">--</span>
-								{/if}
+							<Table.Cell class="py-3 pl-4">
+								<div class="flex items-start gap-3">
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											class="mt-0.5 flex shrink-0 cursor-default"
+											aria-label={statusLabel}
+										>
+											{#if run.status === 'running'}
+												<LoaderCircleIcon class="size-4.5 animate-spin text-status-processing" />
+											{:else if hasErrors}
+												<CircleAlertIcon class="size-4.5 text-status-warning" />
+											{:else}
+												<CircleCheckIcon class="size-4.5 text-status-success" />
+											{/if}
+										</Tooltip.Trigger>
+										<Tooltip.Content>{statusLabel}</Tooltip.Content>
+									</Tooltip.Root>
+									<div class="min-w-0">
+										<div class="truncate text-sm font-medium">
+											{run.assessmentName || 'Untitled assessment'}
+										</div>
+										<div
+											class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground"
+										>
+											<span class="font-mono">{run.id.slice(0, 8)}</span>
+											{#if run.assessmentType}
+												<span aria-hidden="true">·</span>
+												<span class="capitalize">{run.assessmentType}</span>
+											{/if}
+											<span aria-hidden="true">·</span>
+											<Tooltip.Root>
+												<Tooltip.Trigger
+													class="cursor-default transition-colors hover:text-foreground"
+												>
+													{formatUserEmail(run.createdBy)}
+												</Tooltip.Trigger>
+												<Tooltip.Content>{run.createdBy}</Tooltip.Content>
+											</Tooltip.Root>
+											<span aria-hidden="true">·</span>
+											<Tooltip.Root>
+												<Tooltip.Trigger
+													class="cursor-default whitespace-nowrap transition-colors hover:text-foreground"
+												>
+													{formatRelativeTime(run.startTime)}
+												</Tooltip.Trigger>
+												<Tooltip.Content>{formatTime(run.startTime)}</Tooltip.Content>
+											</Tooltip.Root>
+										</div>
+									</div>
+								</div>
 							</Table.Cell>
 							<Table.Cell>
 								{#if run.total > 0}
@@ -500,25 +531,14 @@
 									<span class="text-muted-foreground text-xs">--</span>
 								{/if}
 							</Table.Cell>
-							<Table.Cell>
-								<Tooltip.Root>
-									<Tooltip.Trigger class="text-muted-foreground text-xs cursor-default">
-										{formatUserEmail(run.createdBy)}
-									</Tooltip.Trigger>
-									<Tooltip.Content>{run.createdBy}</Tooltip.Content>
-								</Tooltip.Root>
+							<Table.Cell class="text-right">
+								<span
+									class="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground"
+								>
+									<TimerIcon class="size-3.5" />
+									{formatDuration(run.startTime, run.endTime)}
+								</span>
 							</Table.Cell>
-							<Table.Cell>
-								<Tooltip.Root>
-									<Tooltip.Trigger class="cursor-default whitespace-nowrap">
-										{formatRelativeTime(run.startTime)}
-									</Tooltip.Trigger>
-									<Tooltip.Content>{formatTime(run.startTime)}</Tooltip.Content>
-								</Tooltip.Root>
-							</Table.Cell>
-							<Table.Cell class="font-mono text-xs tabular-nums"
-								>{formatDuration(run.startTime, run.endTime)}</Table.Cell
-							>
 							<Table.Cell>
 								<Button
 									variant="ghost"

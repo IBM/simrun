@@ -51,6 +51,7 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 	assert.Equal(t, "scenario-a", row.Name)
 	require.NotNil(t, row.IsSuccess)
 	assert.True(t, *row.IsSuccess)
+	assert.False(t, row.Errored, "a successful scenario never counts as an execution error")
 
 	var got []expectationDTO
 	require.NoError(t, json.Unmarshal(row.Expectations, &got))
@@ -81,11 +82,34 @@ func TestBuildScenarioResultRow_FailureWithNilFailedAssertions(t *testing.T) {
 	require.NotNil(t, row.IsSuccess)
 	assert.False(t, *row.IsSuccess)
 	assert.Equal(t, "detonate timeout", row.ErrorMessage)
+	assert.True(t, row.Errored, "a failure with no per-expectation results is an execution error")
 
 	var got []expectationDTO
 	require.NoError(t, json.Unmarshal(row.Expectations, &got))
 	require.Len(t, got, 1)
 	assert.False(t, got[0].Passed, "fallback branch marks all assertions as failed when FailedAssertions is nil")
+}
+
+func TestBuildScenarioResultRow_MatchingFailureIsNotErrored(t *testing.T) {
+	// A scenario that ran but missed an expected alert is a clean expectation
+	// mismatch, not an execution error: UnmetExpectations is populated, so it must
+	// not inflate the run's error count (which drives the warning vs. completed
+	// status icon in the UI).
+	runID := uuid.New()
+	a := stubMatcher{matcher: "elastic", alert: "Expected Alert"}
+	res := &runner.ScenarioResult{
+		Name:              "scenario-c",
+		Success:           false,
+		ErrorMessage:      "1 out of 1 expectations did not pass: elastic/Expected Alert",
+		Matchers:          []matchers.AlertGeneratedMatcher{a},
+		UnmetExpectations: []matchers.AlertGeneratedMatcher{a},
+	}
+
+	row := buildScenarioResultRow(runID, res)
+	require.NotNil(t, row)
+	require.NotNil(t, row.IsSuccess)
+	assert.False(t, *row.IsSuccess)
+	assert.False(t, row.Errored, "an unmet expectation is a matching failure, not an execution error")
 }
 
 func TestBuildScenarioResultRow_ExploreModeIncludesDiscoveredAlerts(t *testing.T) {

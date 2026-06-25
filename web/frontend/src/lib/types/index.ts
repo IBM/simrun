@@ -7,6 +7,9 @@ export interface Run {
 	total: number;
 	succeeded: number;
 	failed: number;
+	// Scenarios that failed during execution (warmup/detonation/matching
+	// infrastructure) rather than by missing an expected alert. Subset of `failed`.
+	errors: number;
 	assessmentId?: string;
 	assessmentName?: string;
 	assessmentType?: 'standard' | 'explore' | 'collect';

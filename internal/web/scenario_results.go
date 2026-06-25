@@ -99,10 +99,15 @@ func buildScenarioResultRow(runID uuid.UUID, result *runner.ScenarioResult) *db.
 	}
 
 	isSuccess := result.Success
+	// A scenario errored (vs. cleanly missing an expectation) when it failed
+	// without producing per-expectation results: warmup/detonation failures and
+	// matching-infrastructure errors leave UnmetExpectations nil.
+	errored := !result.Success && len(result.UnmetExpectations) == 0
 	return &db.ScenarioResult{
 		RunID:             runID,
 		Name:              result.Name,
 		IsSuccess:         &isSuccess,
+		Errored:           errored,
 		ErrorMessage:      result.ErrorMessage,
 		DurationSecs:      result.DurationSeconds,
 		MatchingDurSecs:   result.MatchingDurationSeconds,
