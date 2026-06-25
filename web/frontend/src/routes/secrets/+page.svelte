@@ -154,7 +154,7 @@
 					<Button {...props}>New Secret Group</Button>
 				{/snippet}
 			</Dialog.Trigger>
-			<Dialog.Content class="max-w-2xl">
+			<Dialog.Content class="sm:max-w-2xl">
 				<Dialog.Header>
 					<Dialog.Title>New Secret Group</Dialog.Title>
 					<Dialog.Description
@@ -289,7 +289,7 @@
 
 <!-- Edit Dialog -->
 <Dialog.Root bind:open={editDialogOpen}>
-	<Dialog.Content class="max-w-2xl">
+	<Dialog.Content class="sm:max-w-2xl">
 		<Dialog.Header>
 			<Dialog.Title>Edit Secret Group</Dialog.Title>
 			<Dialog.Description

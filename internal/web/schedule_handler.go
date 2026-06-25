@@ -13,17 +13,17 @@ import (
 
 // ScheduleHandlers provides REST handlers for schedule management.
 type ScheduleHandlers struct {
-	scheduleStore db.ScheduleStore
-	scenarioStore db.ScenarioStore
-	scheduler     *Scheduler
+	scheduleStore   db.ScheduleStore
+	assessmentStore db.AssessmentStore
+	scheduler       *Scheduler
 }
 
 // NewScheduleHandlers creates a new ScheduleHandlers instance.
-func NewScheduleHandlers(scheduleStore db.ScheduleStore, scenarioStore db.ScenarioStore, scheduler *Scheduler) *ScheduleHandlers {
+func NewScheduleHandlers(scheduleStore db.ScheduleStore, assessmentStore db.AssessmentStore, scheduler *Scheduler) *ScheduleHandlers {
 	return &ScheduleHandlers{
-		scheduleStore: scheduleStore,
-		scenarioStore: scenarioStore,
-		scheduler:     scheduler,
+		scheduleStore:   scheduleStore,
+		assessmentStore: assessmentStore,
+		scheduler:       scheduler,
 	}
 }
 
@@ -54,15 +54,15 @@ func (h *ScheduleHandlers) HandleGetSchedule(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, schedule)
 }
 
-// HandleGetScheduleByScenario handles GET /api/scenarios/{scenarioId}/schedule
-func (h *ScheduleHandlers) HandleGetScheduleByScenario(w http.ResponseWriter, r *http.Request) {
-	scenarioID, err := uuid.Parse(chi.URLParam(r, "scenarioId"))
+// HandleGetScheduleByAssessment handles GET /api/assessments/{id}/schedule
+func (h *ScheduleHandlers) HandleGetScheduleByAssessment(w http.ResponseWriter, r *http.Request) {
+	assessmentID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid scenario ID")
+		writeError(w, http.StatusBadRequest, "invalid assessment ID")
 		return
 	}
 
-	schedule, err := h.scheduleStore.GetByScenarioID(r.Context(), scenarioID)
+	schedule, err := h.scheduleStore.GetByAssessmentID(r.Context(), assessmentID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "schedule not found")
 		return
@@ -79,14 +79,14 @@ func (h *ScheduleHandlers) HandleCreateSchedule(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	scenarioID, err := uuid.Parse(req.ScenarioID)
+	assessmentID, err := uuid.Parse(req.AssessmentID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid scenario ID")
+		writeError(w, http.StatusBadRequest, "invalid assessment ID")
 		return
 	}
 
-	if _, err := h.scenarioStore.Get(r.Context(), scenarioID); err != nil {
-		writeError(w, http.StatusNotFound, "scenario not found")
+	if _, err := h.assessmentStore.Get(r.Context(), assessmentID); err != nil {
+		writeError(w, http.StatusNotFound, "assessment not found")
 		return
 	}
 
@@ -100,10 +100,10 @@ func (h *ScheduleHandlers) HandleCreateSchedule(w http.ResponseWriter, r *http.R
 		parallelism = 10
 	}
 
-	schedule, err := h.scheduleStore.Create(r.Context(), scenarioID, req.CronExpression, req.Enabled, parallelism, getUserEmail(r))
+	schedule, err := h.scheduleStore.Create(r.Context(), assessmentID, req.CronExpression, req.Enabled, parallelism, getUserEmail(r))
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
-			writeError(w, http.StatusConflict, "schedule already exists for this scenario")
+			writeError(w, http.StatusConflict, "schedule already exists for this assessment")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())

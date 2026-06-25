@@ -143,16 +143,16 @@ func buildScenario(parsedScenario SimrunSchemaJsonScenariosElem, metadata *Simru
 		}
 	}
 
-	// Assertions and timeout
+	// Expectations and timeout
 	if len(parsedScenario.Expectations) == 0 {
-		return nil, fmt.Errorf("scenario '%s' has no assertions defined", parsedScenario.Name)
+		return nil, fmt.Errorf("scenario '%s' has no expectations defined", parsedScenario.Name)
 	}
 
-	assertions, err := buildAssertions(parsedScenario.Expectations, opts.EnvVars)
+	builtMatchers, err := buildMatchers(parsedScenario.Expectations, opts.EnvVars)
 	if err != nil {
 		return nil, err
 	}
-	scenario.Assertions = assertions
+	scenario.Matchers = builtMatchers
 
 	timeout, err := time.ParseDuration(parsedScenario.Expectations[0].Timeout)
 	if err != nil {
@@ -328,30 +328,30 @@ func extractTargets(target *SimrunSchemaJsonTargets) map[string]string {
 	return result
 }
 
-// buildAssertions creates assertion matchers from expectations
-func buildAssertions(expectations []SimrunSchemaJsonScenariosElemExpectationsElem, envVars map[string]string) ([]matchers.AlertGeneratedMatcher, error) {
-	var assertions []matchers.AlertGeneratedMatcher
+// buildMatchers creates alert matchers from expectations
+func buildMatchers(expectations []SimrunSchemaJsonScenariosElemExpectationsElem, envVars map[string]string) ([]matchers.AlertGeneratedMatcher, error) {
+	var built []matchers.AlertGeneratedMatcher
 
 	for _, expectation := range expectations {
 		if datadogMatcher := expectation.DatadogSecuritySignal; datadogMatcher != nil {
-			assertion := datadog.DatadogSecuritySignal(datadogMatcher.Name, envVars)
+			matcher := datadog.DatadogSecuritySignal(datadogMatcher.Name, envVars)
 			if severity := datadogMatcher.Severity; severity != nil {
-				assertion.WithSeverity(*severity)
+				matcher.WithSeverity(*severity)
 			}
-			assertions = append(assertions, assertion)
+			built = append(built, matcher)
 		}
 
 		if elasticMatcher := expectation.ElasticSecurityAlert; elasticMatcher != nil {
-			assertion, err := elastic.ElasticSecurityAlert(elasticMatcher.Name, envVars)
+			matcher, err := elastic.ElasticSecurityAlert(elasticMatcher.Name, envVars)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Elastic Security alert matcher: %w", err)
 			}
 			if severity := elasticMatcher.Severity; severity != nil {
-				assertion.WithSeverity(string(*severity))
+				matcher.WithSeverity(string(*severity))
 			}
-			assertions = append(assertions, assertion)
+			built = append(built, matcher)
 		}
 	}
 
-	return assertions, nil
+	return built, nil
 }

@@ -28,17 +28,17 @@
 	// Form state, seeded from current config each time the dialog opens.
 	let logEnabled = $state(true);
 	let logDays = $state(7);
-	let assessmentEnabled = $state(false);
-	let assessmentDays = $state(30);
+	let runEnabled = $state(false);
+	let runDays = $state(30);
 	let saving = $state(false);
 	let error = $state('');
 
 	$effect(() => {
 		if (open) {
-			logEnabled = boolOf(config['assessment_log_retention_enabled'], true);
-			logDays = numOf(config['assessment_log_retention_days'], 7);
-			assessmentEnabled = boolOf(config['assessment_retention_enabled'], false);
-			assessmentDays = numOf(config['assessment_retention_days'], 30);
+			logEnabled = boolOf(config['run_log_retention_enabled'], true);
+			logDays = numOf(config['run_log_retention_days'], 7);
+			runEnabled = boolOf(config['run_retention_enabled'], false);
+			runDays = numOf(config['run_retention_days'], 30);
 			error = '';
 		}
 	});
@@ -47,11 +47,11 @@
 		error = '';
 
 		const logDaysInt = Math.trunc(Number(logDays));
-		const assessmentDaysInt = Math.trunc(Number(assessmentDays));
+		const runDaysInt = Math.trunc(Number(runDays));
 
 		// Validate up front to avoid a partial save (keys are PUT one at a time).
 		// Only check a section's days when its toggle is on.
-		if ((logEnabled && logDaysInt < 1) || (assessmentEnabled && assessmentDaysInt < 1)) {
+		if ((logEnabled && logDaysInt < 1) || (runEnabled && runDaysInt < 1)) {
 			error = 'Retention periods must be at least 1 day.';
 			return;
 		}
@@ -63,14 +63,12 @@
 		// currently stored days value so an empty/invalid greyed-out field is
 		// never PUT (the backend would reject it with HTTP 400).
 		const next: Record<string, unknown> = {
-			assessment_log_retention_enabled: logEnabled,
-			assessment_log_retention_days: logEnabled
+			run_log_retention_enabled: logEnabled,
+			run_log_retention_days: logEnabled
 				? logDaysInt
-				: numOf(config['assessment_log_retention_days'], 7),
-			assessment_retention_enabled: assessmentEnabled,
-			assessment_retention_days: assessmentEnabled
-				? assessmentDaysInt
-				: numOf(config['assessment_retention_days'], 30)
+				: numOf(config['run_log_retention_days'], 7),
+			run_retention_enabled: runEnabled,
+			run_retention_days: runEnabled ? runDaysInt : numOf(config['run_retention_days'], 30)
 		};
 
 		const changed = Object.entries(next).filter(([key, value]) => value !== config[key]);
@@ -92,12 +90,11 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-w-lg">
+	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
-			<Dialog.Title>Assessment retention</Dialog.Title>
+			<Dialog.Title>Run retention</Dialog.Title>
 			<Dialog.Description>
-				Control how long run logs and whole assessments are kept before they are deleted
-				automatically.
+				Control how long run logs and whole runs are kept before they are deleted automatically.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -118,29 +115,29 @@
 						disabled={!logEnabled}
 					/>
 					<p class="text-xs text-muted-foreground">
-						Verbose per-run logs older than this are removed; the assessment record is kept.
+						Verbose per-run logs older than this are removed; the run record is kept.
 					</p>
 				</div>
 			</div>
 
 			<div class="space-y-3">
 				<div class="flex items-center justify-between">
-					<Label for="assessment-retention-enabled">Delete old assessments</Label>
-					<Switch id="assessment-retention-enabled" bind:checked={assessmentEnabled} />
+					<Label for="run-retention-enabled">Delete old runs</Label>
+					<Switch id="run-retention-enabled" bind:checked={runEnabled} />
 				</div>
 				<div class="space-y-1">
-					<Label for="assessment-retention-days">Keep assessments for (days)</Label>
+					<Label for="run-retention-days">Keep runs for (days)</Label>
 					<Input
-						id="assessment-retention-days"
+						id="run-retention-days"
 						type="number"
 						min={1}
 						class="w-24"
-						bind:value={assessmentDays}
-						disabled={!assessmentEnabled}
+						bind:value={runDays}
+						disabled={!runEnabled}
 					/>
 					<p class="text-xs text-muted-foreground">
-						Whole assessments older than this — results and collected logs included — are
-						permanently deleted.
+						Whole runs older than this — results and collected logs included — are permanently
+						deleted.
 					</p>
 				</div>
 			</div>

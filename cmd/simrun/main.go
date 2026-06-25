@@ -39,7 +39,7 @@ func main() {
 
 	// Create stores
 	runStore := db.NewRunStore(database.Pool)
-	scenarioStore := db.NewScenarioStore(database.Pool)
+	scenarioStore := db.NewAssessmentStore(database.Pool)
 	packStore := db.NewPackStore(database.Pool)
 	configStore := db.NewConfigStore(database.Pool)
 	secretStore := db.NewSecretStore(database.Pool)
@@ -130,8 +130,8 @@ func main() {
 				log.Warnf("Retention sweep: failed to load config: %v", err)
 				return
 			}
-			web.SweepRunLogs(bootstrap.DataDir, cfg.AssessmentLogRetentionEnabled, cfg.AssessmentLogRetentionDays)
-			web.SweepAssessments(ctx, runStore, bootstrap.DataDir, cfg.AssessmentRetentionEnabled, cfg.AssessmentRetentionDays)
+			web.SweepRunLogs(bootstrap.DataDir, cfg.RunLogRetentionEnabled, cfg.RunLogRetentionDays)
+			web.SweepRuns(ctx, runStore, bootstrap.DataDir, cfg.RunRetentionEnabled, cfg.RunRetentionDays)
 		}
 		sweep()
 		for {

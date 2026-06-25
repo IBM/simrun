@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/IBM/simrun/internal/matchers"
-	"github.com/IBM/simrun/internal/results"
 	"github.com/IBM/simrun/internal/runner"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -34,7 +33,7 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 	runID := uuid.New()
 	a1 := stubMatcher{matcher: "elastic", alert: "Suspicious AWS API Call"}
 	a2 := stubMatcher{matcher: "datadog", alert: "Privilege Escalation"}
-	res := &results.ScenarioRunResult{
+	res := &runner.ScenarioResult{
 		Name:                    "scenario-a",
 		Success:                 true,
 		DurationSeconds:         1.5,
@@ -43,7 +42,7 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 		ExecutorName:            "simrun",
 		ExecutorType:            "detonator",
 		ExecutionId:             "exec-1",
-		Assertions:              []matchers.AlertGeneratedMatcher{a1, a2},
+		Matchers:                []matchers.AlertGeneratedMatcher{a1, a2},
 	}
 
 	row := buildScenarioResultRow(runID, res)
@@ -52,9 +51,10 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 	assert.Equal(t, "scenario-a", row.Name)
 	require.NotNil(t, row.IsSuccess)
 	assert.True(t, *row.IsSuccess)
+	assert.False(t, row.Errored, "a successful scenario never counts as an execution error")
 
-	var got []assertionDTO
-	require.NoError(t, json.Unmarshal(row.Assertions, &got))
+	var got []expectationDTO
+	require.NoError(t, json.Unmarshal(row.Expectations, &got))
 	require.Len(t, got, 2)
 	for _, d := range got {
 		assert.True(t, d.Passed, "all assertions pass on a successful run: %+v", d)
@@ -69,12 +69,12 @@ func TestBuildScenarioResultRow_FailureWithNilFailedAssertions(t *testing.T) {
 	// success=true" — that would be misleading).
 	runID := uuid.New()
 	a := stubMatcher{matcher: "elastic", alert: "Whatever"}
-	res := &results.ScenarioRunResult{
-		Name:             "scenario-b",
-		Success:          false,
-		ErrorMessage:     "detonate timeout",
-		Assertions:       []matchers.AlertGeneratedMatcher{a},
-		FailedAssertions: nil,
+	res := &runner.ScenarioResult{
+		Name:              "scenario-b",
+		Success:           false,
+		ErrorMessage:      "detonate timeout",
+		Matchers:          []matchers.AlertGeneratedMatcher{a},
+		UnmetExpectations: nil,
 	}
 
 	row := buildScenarioResultRow(runID, res)
@@ -82,17 +82,40 @@ func TestBuildScenarioResultRow_FailureWithNilFailedAssertions(t *testing.T) {
 	require.NotNil(t, row.IsSuccess)
 	assert.False(t, *row.IsSuccess)
 	assert.Equal(t, "detonate timeout", row.ErrorMessage)
+	assert.True(t, row.Errored, "a failure with no per-expectation results is an execution error")
 
-	var got []assertionDTO
-	require.NoError(t, json.Unmarshal(row.Assertions, &got))
+	var got []expectationDTO
+	require.NoError(t, json.Unmarshal(row.Expectations, &got))
 	require.Len(t, got, 1)
 	assert.False(t, got[0].Passed, "fallback branch marks all assertions as failed when FailedAssertions is nil")
+}
+
+func TestBuildScenarioResultRow_MatchingFailureIsNotErrored(t *testing.T) {
+	// A scenario that ran but missed an expected alert is a clean expectation
+	// mismatch, not an execution error: UnmetExpectations is populated, so it must
+	// not inflate the run's error count (which drives the warning vs. completed
+	// status icon in the UI).
+	runID := uuid.New()
+	a := stubMatcher{matcher: "elastic", alert: "Expected Alert"}
+	res := &runner.ScenarioResult{
+		Name:              "scenario-c",
+		Success:           false,
+		ErrorMessage:      "1 out of 1 expectations did not pass: elastic/Expected Alert",
+		Matchers:          []matchers.AlertGeneratedMatcher{a},
+		UnmetExpectations: []matchers.AlertGeneratedMatcher{a},
+	}
+
+	row := buildScenarioResultRow(runID, res)
+	require.NotNil(t, row)
+	require.NotNil(t, row.IsSuccess)
+	assert.False(t, *row.IsSuccess)
+	assert.False(t, row.Errored, "an unmet expectation is a matching failure, not an execution error")
 }
 
 func TestBuildScenarioResultRow_ExploreModeIncludesDiscoveredAlerts(t *testing.T) {
 	// Explore mode emits DiscoveredAlerts; the column is empty in non-explore runs.
 	runID := uuid.New()
-	res := &results.ScenarioRunResult{
+	res := &runner.ScenarioResult{
 		Name:        "scenario-c",
 		Success:     true,
 		ExploreMode: true,

@@ -20,21 +20,21 @@ import (
 
 // ConnectorHandlers provides REST handlers for connector management.
 type ConnectorHandlers struct {
-	connectorStore db.ConnectorStore
-	secretStore    db.SecretStore
-	scenarioStore  db.ScenarioStore
-	runStore       db.RunStore
-	credResolver   *credentials.Resolver
+	connectorStore  db.ConnectorStore
+	secretStore     db.SecretStore
+	assessmentStore db.AssessmentStore
+	runStore        db.RunStore
+	credResolver    *credentials.Resolver
 }
 
 // NewConnectorHandlers creates a new ConnectorHandlers instance.
-func NewConnectorHandlers(connectorStore db.ConnectorStore, secretStore db.SecretStore, scenarioStore db.ScenarioStore, runStore db.RunStore, credResolver *credentials.Resolver) *ConnectorHandlers {
+func NewConnectorHandlers(connectorStore db.ConnectorStore, secretStore db.SecretStore, assessmentStore db.AssessmentStore, runStore db.RunStore, credResolver *credentials.Resolver) *ConnectorHandlers {
 	return &ConnectorHandlers{
-		connectorStore: connectorStore,
-		secretStore:    secretStore,
-		scenarioStore:  scenarioStore,
-		runStore:       runStore,
-		credResolver:   credResolver,
+		connectorStore:  connectorStore,
+		secretStore:     secretStore,
+		assessmentStore: assessmentStore,
+		runStore:        runStore,
+		credResolver:    credResolver,
 	}
 }
 

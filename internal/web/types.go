@@ -29,14 +29,14 @@ type LintRequest struct {
 }
 
 type RunRequest struct {
-	ScenarioID    string `json:"scenarioId"`
+	AssessmentID  string `json:"assessmentId"`
 	Parallelism   int    `json:"parallelism,omitempty"`
 	ExploreMode   bool   `json:"exploreMode,omitempty"`
 	CleanupAlerts bool   `json:"cleanupAlerts,omitempty"`
 	Timeout       string `json:"timeout,omitempty"`
 }
 
-type SaveScenarioRequest struct {
+type SaveAssessmentRequest struct {
 	Name string `json:"name"`
 	Type string `json:"type,omitempty"`
 	YAML string `json:"yaml"`
@@ -93,7 +93,7 @@ type SecretGroupResponse struct {
 // Schedule request types
 
 type CreateScheduleRequest struct {
-	ScenarioID     string `json:"scenarioId"`
+	AssessmentID   string `json:"assessmentId"`
 	CronExpression string `json:"cronExpression"`
 	Enabled        bool   `json:"enabled"`
 	Parallelism    int    `json:"parallelism,omitempty"`
@@ -117,7 +117,7 @@ type LintedScenario struct {
 	Name         string `json:"name"`
 	ExecutorType string `json:"executorType"`
 	ExecutorName string `json:"executorName"`
-	Assertions   int    `json:"assertions"`
+	Expectations int    `json:"expectations"`
 }
 
 type RunResponse struct {

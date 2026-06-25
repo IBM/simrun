@@ -25,8 +25,8 @@
 
 	const navItems: { href: string; label: string; icon: Component }[] = [
 		{ href: '/', label: 'Dashboard', icon: LayoutDashboardIcon },
-		{ href: '/assessments', label: 'Assessments', icon: PlayIcon },
-		{ href: '/scenarios', label: 'Scenarios', icon: FileTextIcon },
+		{ href: '/runs', label: 'Runs', icon: PlayIcon },
+		{ href: '/assessments', label: 'Assessments', icon: FileTextIcon },
 		{ href: '/packs', label: 'Packs', icon: PackageIcon },
 		{ href: '/rules/coverage', label: 'Rule Coverage', icon: ShieldCheckIcon },
 
@@ -97,7 +97,7 @@
 									</a>
 								{/snippet}
 							</SidebarUI.SidebarMenuButton>
-							{#if item.href === '/assessments' && $activeRuns.length > 0}
+							{#if item.href === '/runs' && $activeRuns.length > 0}
 								<SidebarUI.SidebarMenuBadge>
 									<Badge variant="secondary" class="h-5 px-1.5 text-[10px] font-mono">
 										{$activeRuns.length}

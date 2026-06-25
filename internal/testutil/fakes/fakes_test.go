@@ -32,7 +32,7 @@ func TestRunStore_ListExpired(t *testing.T) {
 	assert.NotContains(t, ids, oldRunning, "running run must be skipped even when old")
 }
 
-// UpdateScenarioIdentity and UpdateScenarioAssertions are the mid-run partial
+// UpdateScenarioIdentity and UpdateScenarioExpectations are the mid-run partial
 // writes behind the live scenario detail view: each must touch only its own
 // columns and leave the lifecycle status/phase untouched. (Production SQL is
 // Postgres-bound and verified manually per task 5.3; this pins the contract the
@@ -57,18 +57,18 @@ func TestRunStore_PartialScenarioUpdates(t *testing.T) {
 	assert.Equal(t, "detonator", got.ExecutorType)
 	assert.Equal(t, "exec-9", got.ExecutionID)
 	assert.Equal(t, "sim-9", got.SimulationID)
-	assert.Nil(t, got.Assertions, "identity write must not populate assertions")
+	assert.Nil(t, got.Expectations, "identity write must not populate assertions")
 
 	// Assertions write: only the assertions column changes; everything else stays.
 	partial := []byte(`[{"matcherType":"Elastic","alertName":"a","passed":true},{"matcherType":"Elastic","alertName":"b"}]`)
-	require.NoError(t, s.UpdateScenarioAssertions(ctx, id, partial))
+	require.NoError(t, s.UpdateScenarioExpectations(ctx, id, partial))
 	got, err = s.GetScenarioResult(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, "running", got.Status, "assertions write must not change status")
 	require.NotNil(t, got.Phase)
 	assert.Equal(t, "matching", *got.Phase, "assertions write must not change phase")
 	assert.Equal(t, "exec-9", got.ExecutionID, "assertions write must not touch identity")
-	assert.JSONEq(t, string(partial), string(got.Assertions))
+	assert.JSONEq(t, string(partial), string(got.Expectations))
 }
 
 func mustCreateRun(t *testing.T, ctx context.Context, s *RunStore, status string, createdAt time.Time) uuid.UUID {

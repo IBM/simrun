@@ -8,13 +8,13 @@ import (
 
 func TestDefaultAppConfig(t *testing.T) {
 	assert.Equal(t, AppConfig{
-		Parallelism:                   5,
-		TerraformVersion:              "",
-		PackLogsEnabled:               true,
-		SSHLoggingEnabled:             false,
-		AssessmentLogRetentionEnabled: true,
-		AssessmentLogRetentionDays:    7,
-		AssessmentRetentionEnabled:    false,
-		AssessmentRetentionDays:       30,
+		Parallelism:            5,
+		TerraformVersion:       "",
+		PackLogsEnabled:        true,
+		SSHLoggingEnabled:      false,
+		RunLogRetentionEnabled: true,
+		RunLogRetentionDays:    7,
+		RunRetentionEnabled:    false,
+		RunRetentionDays:       30,
 	}, DefaultAppConfig())
 }

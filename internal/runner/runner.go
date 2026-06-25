@@ -4,7 +4,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,84 +14,83 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ScenarioResult struct {
-	Name                    string  `json:"name"`
-	Success                 bool    `json:"success"`
-	ExecutionId             string  `json:"executionId"`
-	Error                   string  `json:"error,omitempty"`
-	MatchingDurationSeconds float64 `json:"matchingDurationSeconds,omitempty"`
-	CollectedLogPath        string  `json:"collectedLogPath,omitempty"`
-	CollectedDocCount       int     `json:"collectedDocCount,omitempty"`
-}
-
+// Runner executes exactly one scenario. Fan-out across multiple scenarios is
+// the sole responsibility of the parallel executor (see internal/results).
 type Runner struct {
-	Scenarios []*Scenario
-	Interval  time.Duration
+	Interval time.Duration
 }
 
 func NewRunner() *Runner {
 	return &Runner{Interval: 2 * time.Second}
 }
 
-func (m *Runner) Run() ([]ScenarioResult, error) {
-	var results []ScenarioResult
-	failedScenarios := map[string]error{}
-
-	for i := range m.Scenarios {
-		scenario := m.Scenarios[i]
-		executionId, matchingDuration, err := m.runScenario(scenario)
-
-		result := ScenarioResult{
-			Name:        scenario.Name,
-			ExecutionId: executionId,
+// Eventually polls fn at interval until it reports done (true), returns an
+// error, or the deadline passes. A zero deadline means "no deadline" (poll
+// until done or error). On deadline it returns nil — the caller inspects the
+// state fn was mutating to decide success or failure.
+func Eventually(fn func() (bool, error), interval time.Duration, deadline time.Time) error {
+	hasDeadline := !deadline.IsZero()
+	for {
+		if hasDeadline && time.Now().After(deadline) {
+			return nil
 		}
-
+		done, err := fn()
 		if err != nil {
-			result.Success = false
-			result.Error = err.Error()
-			failedScenarios[scenario.Name] = err
-		} else {
-			result.Success = true
+			return err
 		}
-
-		result.MatchingDurationSeconds = matchingDuration
-		results = append(results, result)
-	}
-
-	if len(failedScenarios) > 0 {
-		var errorMessage strings.Builder
-		errorMessage.WriteString("At least one scenario failed:\n\n")
-		for scenario, err := range failedScenarios {
-			errorMessage.WriteString(scenario)
-			errorMessage.WriteString(" returned: ")
-			errorMessage.WriteString(err.Error())
-			errorMessage.WriteRune('\n')
+		if done {
+			return nil
 		}
-		return results, errors.New(errorMessage.String())
+		time.Sleep(interval)
 	}
-
-	return results, nil
 }
 
-func (m *Runner) runScenario(scenario *Scenario) (string, float64, error) {
-	if scenario.Detonator == nil && scenario.Injector == nil {
-		return "", 0, fmt.Errorf("scenario must have either a detonator or an injector")
+// Run executes the given scenario and returns its populated result. Wall-clock
+// timing (TimeExecuted, DurationSeconds) is filled in by the caller.
+func (m *Runner) Run(scenario *Scenario) ScenarioResult {
+	return m.runScenario(scenario)
+}
+
+// runScenario executes a single scenario and returns its populated result.
+// It does not mutate the scenario input; wall-clock timing (TimeExecuted,
+// DurationSeconds) is filled in by the caller.
+func (m *Runner) runScenario(scenario *Scenario) ScenarioResult {
+	result := ScenarioResult{
+		Name:        scenario.Name,
+		Matchers:    scenario.Matchers,
+		Indicators:  scenario.Indicators,
+		Metadata:    scenario.Metadata,
+		ExploreMode: scenario.ExploreMode,
+	}
+	switch {
+	case scenario.Detonator != nil:
+		result.ExecutorType = "detonator"
+		result.ExecutorName = scenario.Detonator.String()
+		result.SimulationID = scenario.Detonator.SimulationId()
+	case scenario.Injector != nil:
+		result.ExecutorType = "injector"
+		result.ExecutorName = scenario.Injector.String()
+	default:
+		result.ExecutorType = "unknown"
+		result.ExecutorName = "unknown"
+		result.ErrorMessage = "scenario must have either a detonator or an injector"
+		return result
 	}
 
 	executionOutput, logger, err := m.executeScenario(scenario)
+	// Preserve the execution_id even on failure so a partially-completed
+	// detonation (e.g. terraform applied, detonation timed out) stays
+	// correlatable. Indexing a nil map yields "".
+	result.ExecutionId = executionOutput["execution_id"]
 	if err != nil {
-		// Preserve the execution_id even on failure so a partially-completed
-		// detonation (e.g. terraform applied, detonation timed out) stays
-		// correlatable. Indexing a nil map yields "".
-		return executionOutput["execution_id"], 0, err
+		result.ErrorMessage = err.Error()
+		return result
 	}
 
 	indicators := m.buildIndicatorsList(scenario, executionOutput)
 
 	defer m.CleanupScenario(scenario, indicators, logger)
 	start := time.Now()
-
-	executionId := executionOutput["execution_id"]
 
 	// Add simulation_id to executionOutput for collector to use
 	if scenario.Detonator != nil {
@@ -101,55 +99,59 @@ func (m *Runner) runScenario(scenario *Scenario) (string, float64, error) {
 
 	// Surface executor identity now that detonation has resolved execution_id /
 	// simulation_id, so a still-running row shows what is executing and where.
-	reportIdentity(scenario, executionId)
+	reportIdentity(scenario, result.ExecutionId)
 
-	// If no assertions, no collector, and not explore mode, just return
-	if !scenario.ExploreMode && len(scenario.Assertions) == 0 && scenario.Collector == nil {
-		return executionId, 0, nil
+	// If no matchers, no collector, and not explore mode, just return success.
+	if !scenario.ExploreMode && len(scenario.Matchers) == 0 && scenario.Collector == nil {
+		result.Success = true
+		return result
 	}
 
 	logger.WithFields(logrus.Fields{
-		"execution_id": executionId,
+		"execution_id": result.ExecutionId,
 	}).Info("Scenario successfully executed")
 
 	deadline := start.Add(scenario.Timeout)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
-	// Run assertions or explore mode
-	var assertionsErr error
+	// Run matchers or explore mode
+	var matchErr error
 	if scenario.ExploreMode {
 		reportStatus(scenario, "exploring")
-		assertionsErr = m.runExploreMode(scenario, indicators, logger, start, deadline)
+		result.DiscoveredAlerts, matchErr = m.runExploreMode(scenario, indicators, logger, start, deadline)
 	} else if isCollectMode(scenario) {
-		// Collect mode: skip assertions, wait for timeout, then collect
+		// Collect mode: skip matching, wait for timeout, then collect
 		reportStatus(scenario, "waiting")
 		logger.Infof("Collect mode: waiting %s before collecting logs", scenario.Timeout)
 		<-ctx.Done()
-	} else if len(scenario.Assertions) > 0 {
+	} else if len(scenario.Matchers) > 0 {
 		reportStatus(scenario, "matching")
-		assertionsErr = m.runAssertions(scenario, indicators, logger, start, deadline)
+		result.UnmetExpectations, matchErr = m.runMatchers(scenario, indicators, logger, start, deadline)
 	}
 
-	// Run collection at the end (after assertions complete or timeout)
+	// Run collection at the end (after matching completes or timeout)
 	if scenario.Collector != nil {
 		reportStatus(scenario, "collecting")
-		collectedLogPath, collectedDocCount := m.runCollection(ctx, scenario, executionOutput, logger)
-		scenario.CollectedLogPath = collectedLogPath
-		scenario.CollectedDocCount = collectedDocCount
+		result.CollectedLogPath, result.CollectedDocCount = m.runCollection(ctx, scenario, executionOutput, logger)
 	}
 
-	matchingDuration := time.Since(start).Seconds()
-	return executionId, matchingDuration, assertionsErr
+	result.MatchingDurationSeconds = time.Since(start).Seconds()
+	if matchErr != nil {
+		result.ErrorMessage = matchErr.Error()
+	} else {
+		result.Success = true
+	}
+	return result
 }
 
 // isCollectMode returns true when the scenario has a collector and only
-// placeholder assertions generated by the frontend for collect-type scenarios.
+// placeholder matchers generated by the frontend for collect-type scenarios.
 func isCollectMode(scenario *Scenario) bool {
 	if scenario.Collector == nil {
 		return false
 	}
-	for _, a := range scenario.Assertions {
+	for _, a := range scenario.Matchers {
 		if !strings.HasSuffix(a.AlertName(), " - collect mode") {
 			return false
 		}
@@ -218,95 +220,101 @@ func (m *Runner) executeInjector(scenario *Scenario) (*logrus.Entry, map[string]
 	return logger, executionOutput, err
 }
 
-func (m *Runner) runAssertions(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) error {
-	// Set start time on Elastic assertions to scope queries to this run
-	for _, a := range scenario.Assertions {
-		if ea, ok := a.(*elastic.ElasticSecurityAlertGeneratedAssertion); ok {
+// runMatchers polls every matcher until all match or the deadline passes,
+// reporting partial progress as each newly matches. It returns the matchers
+// that never matched (unmet expectations) and any check error.
+func (m *Runner) runMatchers(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) ([]matchers.AlertGeneratedMatcher, error) {
+	// Set start time on Elastic matchers to scope queries to this run
+	for _, a := range scenario.Matchers {
+		if ea, ok := a.(*elastic.ElasticSecurityAlertMatcher); ok {
 			ea.SetSince(start)
 		}
 	}
 
-	// Build a queue containing all assertions
-	remainingAssertions := make(chan matchers.AlertGeneratedMatcher, len(scenario.Assertions))
-	for i := range scenario.Assertions {
-		remainingAssertions <- scenario.Assertions[i]
+	// Build a queue containing all matchers
+	remaining := make(chan matchers.AlertGeneratedMatcher, len(scenario.Matchers))
+	for i := range scenario.Matchers {
+		remaining <- scenario.Matchers[i]
 	}
 
-	logger.Info("Waiting for assertions")
-	hasDeadline := scenario.Timeout > 0
+	logger.Info("Waiting for expectations")
+	matchedSet := make(map[matchers.AlertGeneratedMatcher]bool, len(scenario.Matchers))
 
-	matchedSet := make(map[matchers.AlertGeneratedMatcher]bool, len(scenario.Assertions))
-
-	for len(remainingAssertions) > 0 {
-		if hasDeadline && time.Now().After(deadline) {
-			logger.WithFields(logrus.Fields{
-				"remaining_alerts": len(remainingAssertions),
-			}).Warn("Timeout exceeded waiting for alerts")
-			break
-		}
-
-		assertion := <-remainingAssertions
-		matched, err := m.checkAssertion(assertion, indicators, logger, start)
-		if err != nil {
-			return err
-		}
-		if !matched {
-			remainingAssertions <- assertion
-			time.Sleep(m.Interval)
-			continue
-		}
-		// Newly matched: persist the updated partial state (write-on-change).
-		matchedSet[assertion] = true
-		reportAssertions(scenario, matchedSet)
+	// No deadline check when Timeout <= 0 (poll until all match).
+	pollDeadline := time.Time{}
+	if scenario.Timeout > 0 {
+		pollDeadline = deadline
 	}
 
-	numRemainingAssertions := len(remainingAssertions)
-	if numRemainingAssertions == 0 {
-		logger.Info("All assertions passed")
-		return nil
+	err := Eventually(func() (bool, error) {
+		// One pass over the matchers still outstanding; re-queue the misses.
+		for n := len(remaining); n > 0; n-- {
+			matcher := <-remaining
+			matched, err := m.checkMatcher(matcher, indicators, logger, start)
+			if err != nil {
+				return false, err
+			}
+			if !matched {
+				remaining <- matcher
+				continue
+			}
+			// Newly matched: report the updated partial state (write-on-change).
+			matchedSet[matcher] = true
+			reportExpectations(scenario, matchedSet)
+		}
+		return len(remaining) == 0, nil
+	}, m.Interval, pollDeadline)
+	if err != nil {
+		return nil, err
 	}
 
-	return m.buildAssertionError(scenario, remainingAssertions, numRemainingAssertions, logger)
+	numRemaining := len(remaining)
+	if numRemaining == 0 {
+		logger.Info("All expectations passed")
+		return nil, nil
+	}
+
+	return m.buildUnmetExpectationsError(scenario, remaining, numRemaining, logger)
 }
 
-func (m *Runner) checkAssertion(assertion matchers.AlertGeneratedMatcher, indicators []string, logger *logrus.Entry, start time.Time) (bool, error) {
-	hasAlert, err := assertion.HasExpectedAlert(indicators, logger)
+func (m *Runner) checkMatcher(matcher matchers.AlertGeneratedMatcher, indicators []string, logger *logrus.Entry, start time.Time) (bool, error) {
+	hasAlert, err := matcher.HasExpectedAlert(indicators, logger)
 	if err != nil {
 		return false, err
 	}
 
 	if hasAlert {
 		logger.WithFields(logrus.Fields{
-			"matcher":      assertion.MatcherName(),
-			"alert":        assertion.AlertName(),
+			"matcher":      matcher.MatcherName(),
+			"alert":        matcher.AlertName(),
 			"time_seconds": strconv.Itoa(int(time.Since(start).Seconds())),
 		}).Info("Confirmed that the expected signal was created")
 		return true, nil
 	}
 
 	logger.WithFields(logrus.Fields{
-		"matcher": assertion.MatcherName(),
-		"alert":   assertion.AlertName(),
-	}).Info("Assertion not yet matched, will retry")
+		"matcher": matcher.MatcherName(),
+		"alert":   matcher.AlertName(),
+	}).Info("Expectation not yet matched, will retry")
 	return false, nil
 }
 
-func (m *Runner) buildAssertionError(scenario *Scenario, remainingAssertions chan matchers.AlertGeneratedMatcher, numRemainingAssertions int, logger *logrus.Entry) error {
-	failedAssertions := make([]string, 0, numRemainingAssertions)
-	scenario.FailedAssertions = make([]matchers.AlertGeneratedMatcher, 0, numRemainingAssertions)
-	for i := 0; i < numRemainingAssertions; i++ {
-		assertion := <-remainingAssertions
-		failedAssertions = append(failedAssertions, assertion.String())
-		scenario.FailedAssertions = append(scenario.FailedAssertions, assertion)
+func (m *Runner) buildUnmetExpectationsError(scenario *Scenario, remaining chan matchers.AlertGeneratedMatcher, numRemaining int, logger *logrus.Entry) ([]matchers.AlertGeneratedMatcher, error) {
+	unmetNames := make([]string, 0, numRemaining)
+	unmet := make([]matchers.AlertGeneratedMatcher, 0, numRemaining)
+	for range numRemaining {
+		matcher := <-remaining
+		unmetNames = append(unmetNames, matcher.String())
+		unmet = append(unmet, matcher)
 	}
 
 	logger.WithFields(logrus.Fields{
-		"scenario":          scenario.Name,
-		"failed_assertions": numRemainingAssertions,
-		"assertion_details": failedAssertions,
-	}).Warn("Scenario assertions did not pass")
+		"scenario":            scenario.Name,
+		"unmet_expectations":  numRemaining,
+		"expectation_details": unmetNames,
+	}).Warn("Scenario expectations did not pass")
 
-	return fmt.Errorf("%d out of %d assertions did not pass: %s", numRemainingAssertions, len(scenario.Assertions), strings.Join(failedAssertions, ", "))
+	return unmet, fmt.Errorf("%d out of %d expectations did not pass: %s", numRemaining, len(scenario.Matchers), strings.Join(unmetNames, ", "))
 }
 
 func (m *Runner) runCollection(ctx context.Context, scenario *Scenario, executionOutput map[string]string, logger *logrus.Entry) (string, int) {
@@ -330,15 +338,15 @@ func (m *Runner) runCollection(ctx context.Context, scenario *Scenario, executio
 	return outputPath, collected
 }
 
-func (m *Runner) runExploreMode(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) error {
+func (m *Runner) runExploreMode(scenario *Scenario, indicators []string, logger *logrus.Entry, start time.Time, deadline time.Time) ([]DiscoveredAlert, error) {
 	if len(indicators) == 0 {
-		return fmt.Errorf("explore mode requires at least one indicator to search for")
+		return nil, fmt.Errorf("explore mode requires at least one indicator to search for")
 	}
 
 	// Create API client and query once, reuse across all polling iterations
 	api, err := elastic.CreateAPIFromEnvVars(scenario.EnvVars)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	query := elastic.BuildExploreQuery(start)
 
@@ -346,17 +354,19 @@ func (m *Runner) runExploreMode(scenario *Scenario, indicators []string, logger 
 
 	// Track unique alerts by ID to avoid duplicates across polls
 	seen := make(map[string]bool)
+	var discovered []DiscoveredAlert
 
-	for time.Now().Before(deadline) {
+	// Explore always runs to the deadline (never satisfied early), collecting
+	// every distinct matching alert it sees.
+	err = Eventually(func() (bool, error) {
 		results, err := elastic.ExploreAlerts(api, query, indicators, logger)
 		if err != nil {
-			return err
+			return false, err
 		}
-
 		for _, r := range results {
 			if !seen[r.AlertID] {
 				seen[r.AlertID] = true
-				scenario.DiscoveredAlerts = append(scenario.DiscoveredAlerts, DiscoveredAlert{
+				discovered = append(discovered, DiscoveredAlert{
 					RuleName: r.RuleName,
 					AlertID:  r.AlertID,
 					Severity: r.Severity,
@@ -368,17 +378,19 @@ func (m *Runner) runExploreMode(scenario *Scenario, indicators []string, logger 
 				}).Info("Explore mode: discovered matching alert")
 			}
 		}
-
-		time.Sleep(m.Interval)
+		return false, nil
+	}, m.Interval, deadline)
+	if err != nil {
+		return discovered, err
 	}
 
-	logger.WithField("total_discovered", len(scenario.DiscoveredAlerts)).Info("Explore mode: completed")
+	logger.WithField("total_discovered", len(discovered)).Info("Explore mode: completed")
 
 	// Optional cleanup: close discovered alerts
-	if scenario.CleanupAlerts && len(scenario.DiscoveredAlerts) > 0 {
+	if scenario.CleanupAlerts && len(discovered) > 0 {
 		reportStatus(scenario, "cleanup")
-		alertIDs := make([]string, len(scenario.DiscoveredAlerts))
-		for i, a := range scenario.DiscoveredAlerts {
+		alertIDs := make([]string, len(discovered))
+		for i, a := range discovered {
 			alertIDs[i] = a.AlertID
 		}
 		if err := elastic.CloseAlerts(api, alertIDs, logger); err != nil {
@@ -386,24 +398,24 @@ func (m *Runner) runExploreMode(scenario *Scenario, indicators []string, logger 
 		}
 	}
 
-	if len(scenario.DiscoveredAlerts) == 0 {
-		return fmt.Errorf("explore mode: no matching alerts discovered within timeout")
+	if len(discovered) == 0 {
+		return discovered, fmt.Errorf("explore mode: no matching alerts discovered within timeout")
 	}
 
-	return nil
+	return discovered, nil
 }
 
 func (m *Runner) CleanupScenario(scenario *Scenario, indicators []string, logger *logrus.Entry) {
-	if len(scenario.Assertions) == 0 || scenario.ExploreMode {
+	if len(scenario.Matchers) == 0 || scenario.ExploreMode {
 		return
 	}
 
 	reportStatus(scenario, "cleanup")
-	for _, assertion := range scenario.Assertions {
-		if err := assertion.Cleanup(indicators, logger); err != nil {
+	for _, matcher := range scenario.Matchers {
+		if err := matcher.Cleanup(indicators, logger); err != nil {
 			logger.WithFields(logrus.Fields{
-				"matcher": assertion.MatcherName(),
-				"alert":   assertion.AlertName(),
+				"matcher": matcher.MatcherName(),
+				"alert":   matcher.AlertName(),
 				"error":   err.Error(),
 			}).Warn("Failed to clean up generated signals")
 		}
@@ -438,16 +450,16 @@ func reportIdentity(scenario *Scenario, executionID string) {
 	scenario.IdentityCallback(scenario.Name, identity)
 }
 
-// reportAssertions emits the current pass/pending state of every assertion.
-// Matched assertions carry Passed=true; not-yet-matched ones carry Passed=nil
+// reportExpectations emits the current pass/pending state of every expectation.
+// Matched expectations carry Passed=true; not-yet-matched ones carry Passed=nil
 // (pending) — no terminal failure is recorded until completion.
-func reportAssertions(scenario *Scenario, matchedSet map[matchers.AlertGeneratedMatcher]bool) {
-	if scenario.AssertionsCallback == nil {
+func reportExpectations(scenario *Scenario, matchedSet map[matchers.AlertGeneratedMatcher]bool) {
+	if scenario.ExpectationsCallback == nil {
 		return
 	}
-	results := make([]AssertionResult, 0, len(scenario.Assertions))
-	for _, a := range scenario.Assertions {
-		r := AssertionResult{
+	results := make([]ExpectationResult, 0, len(scenario.Matchers))
+	for _, a := range scenario.Matchers {
+		r := ExpectationResult{
 			MatcherType: a.MatcherName(),
 			AlertName:   a.AlertName(),
 		}
@@ -457,7 +469,7 @@ func reportAssertions(scenario *Scenario, matchedSet map[matchers.AlertGenerated
 		}
 		results = append(results, r)
 	}
-	scenario.AssertionsCallback(scenario.Name, results)
+	scenario.ExpectationsCallback(scenario.Name, results)
 }
 
 func (m *Runner) buildIndicatorsList(scenario *Scenario, detonationOutput map[string]string) []string {

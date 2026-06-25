@@ -9,7 +9,7 @@ import (
 type Collector interface {
 	// Collect searches for logs matching the configured query and indicators,
 	// and writes them to the output file. This is called once at the end of
-	// scenario execution (when assertions pass or timeout is reached).
+	// scenario execution (when expectations pass or timeout is reached).
 	// It returns the number of documents collected and any error that occurred.
 	Collect(ctx context.Context, indicators map[string]string) (int, error)
 

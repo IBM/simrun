@@ -18,29 +18,29 @@ import (
 
 // ScenarioService handles scenario parsing, execution, and result persistence.
 type ScenarioService struct {
-	runStore       db.RunStore
-	scenarioStore  db.ScenarioStore
-	packStore      db.PackStore
-	configStore    db.ConfigStore
-	creds          *credentials.Resolver
-	exporter       *ResultExporter
-	hub            *Hub
-	runLogRegistry *RunLogRegistry
-	dataDir        string
+	runStore        db.RunStore
+	assessmentStore db.AssessmentStore
+	packStore       db.PackStore
+	configStore     db.ConfigStore
+	creds           *credentials.Resolver
+	exporter        *ResultExporter
+	hub             *Hub
+	runLogRegistry  *RunLogRegistry
+	dataDir         string
 }
 
 // NewScenarioService creates a new ScenarioService.
-func NewScenarioService(runStore db.RunStore, scenarioStore db.ScenarioStore, packStore db.PackStore, configStore db.ConfigStore, creds *credentials.Resolver, exporter *ResultExporter, hub *Hub, runLogRegistry *RunLogRegistry, dataDir string) *ScenarioService {
+func NewScenarioService(runStore db.RunStore, assessmentStore db.AssessmentStore, packStore db.PackStore, configStore db.ConfigStore, creds *credentials.Resolver, exporter *ResultExporter, hub *Hub, runLogRegistry *RunLogRegistry, dataDir string) *ScenarioService {
 	return &ScenarioService{
-		runStore:       runStore,
-		scenarioStore:  scenarioStore,
-		packStore:      packStore,
-		configStore:    configStore,
-		creds:          creds,
-		exporter:       exporter,
-		hub:            hub,
-		runLogRegistry: runLogRegistry,
-		dataDir:        dataDir,
+		runStore:        runStore,
+		assessmentStore: assessmentStore,
+		packStore:       packStore,
+		configStore:     configStore,
+		creds:           creds,
+		exporter:        exporter,
+		hub:             hub,
+		runLogRegistry:  runLogRegistry,
+		dataDir:         dataDir,
 	}
 }
 
@@ -103,7 +103,7 @@ func (s *ScenarioService) Lint(yamlContent []byte) (*LintResponse, error) {
 			Name:         sc.Name,
 			ExecutorType: executorType,
 			ExecutorName: executorName,
-			Assertions:   len(sc.Assertions),
+			Expectations: len(sc.Matchers),
 		})
 	}
 
@@ -124,12 +124,12 @@ type RunOptions struct {
 	Timeout       time.Duration // global timeout override; 0 means use per-scenario YAML timeout
 }
 
-// Run starts async scenario execution. Returns the runId immediately.
-// It fetches the scenario YAML from the database using the provided scenarioID.
-func (s *ScenarioService) Run(ctx context.Context, scenarioID uuid.UUID, opts *RunOptions) (string, error) {
-	savedScenario, err := s.scenarioStore.Get(ctx, scenarioID)
+// Run starts async execution of a saved assessment. Returns the runId
+// immediately. It fetches the assessment YAML using the provided assessmentID.
+func (s *ScenarioService) Run(ctx context.Context, assessmentID uuid.UUID, opts *RunOptions) (string, error) {
+	assessment, err := s.assessmentStore.Get(ctx, assessmentID)
 	if err != nil {
-		return "", fmt.Errorf("scenario not found: %w", err)
+		return "", fmt.Errorf("assessment not found: %w", err)
 	}
 
 	appCfg := config.DefaultAppConfig()
@@ -175,7 +175,7 @@ func (s *ScenarioService) Run(ctx context.Context, scenarioID uuid.UUID, opts *R
 		PackLogsEnabled:  appCfg.PackLogsEnabled,
 	}
 
-	parseResult, err := parser.ParseWithOptions([]byte(savedScenario.YAML), parseOpts)
+	parseResult, err := parser.ParseWithOptions([]byte(assessment.YAML), parseOpts)
 	if err != nil {
 		return "", err
 	}
@@ -198,7 +198,7 @@ func (s *ScenarioService) Run(ctx context.Context, scenarioID uuid.UUID, opts *R
 		Status:       "running",
 		StartTime:    now,
 		Total:        len(scenarios),
-		ScenarioID:   &scenarioID,
+		AssessmentID: &assessmentID,
 		ScheduleID:   opts.ScheduleID,
 		ScheduleName: opts.ScheduleName,
 		CreatedBy:    opts.CreatedBy,
@@ -243,18 +243,18 @@ func (s *ScenarioService) Run(ctx context.Context, scenarioID uuid.UUID, opts *R
 				}
 			}
 		}
-		sc.AssertionsCallback = func(scenarioName string, assertions []runner.AssertionResult) {
+		sc.ExpectationsCallback = func(scenarioName string, expectations []runner.ExpectationResult) {
 			dbID, ok := scenarioDBIDs[scenarioName]
 			if !ok {
 				return
 			}
-			assertionsJSON, err := buildPartialAssertionsJSON(assertions)
+			expectationsJSON, err := buildPartialExpectationsJSON(expectations)
 			if err != nil {
-				log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to marshal partial assertions")
+				log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to marshal partial expectations")
 				return
 			}
-			if err := s.runStore.UpdateScenarioAssertions(context.Background(), dbID, assertionsJSON); err != nil {
-				log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to update scenario assertions")
+			if err := s.runStore.UpdateScenarioExpectations(context.Background(), dbID, expectationsJSON); err != nil {
+				log.WithField("scenario", scenarioName).WithError(err).Warn("Failed to update scenario expectations")
 			}
 		}
 	}
@@ -279,7 +279,7 @@ func (s *ScenarioService) Run(ctx context.Context, scenarioID uuid.UUID, opts *R
 			}
 		}()
 
-		allResults := results.RunScenariosParallel(scenarios, parallelism, func(result *results.ScenarioRunResult) {
+		allResults := results.RunScenariosParallel(scenarios, parallelism, func(result *runner.ScenarioResult) {
 			// Update run counters incrementally
 			successDelta, failDelta := 0, 0
 			if result.Success {

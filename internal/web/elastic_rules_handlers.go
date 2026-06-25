@@ -170,7 +170,7 @@ func (h *ConnectorHandlers) HandleRuleCoverage(w http.ResponseWriter, r *http.Re
 	}
 
 	// List saved scenarios
-	scenarios, err := h.scenarioStore.ListAll(ctx)
+	scenarios, err := h.assessmentStore.ListAll(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -179,15 +179,15 @@ func (h *ConnectorHandlers) HandleRuleCoverage(w http.ResponseWriter, r *http.Re
 	// Build rule-name-to-scenarios mapping
 	scenarioMap := buildRuleNameToScenariosMap(scenarios)
 
-	// Get latest assertion results
-	assertionResults, err := h.runStore.GetLatestAssertionResults(ctx)
+	// Get latest expectation results
+	expectationResults, err := h.runStore.GetLatestExpectationResults(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Build and return response
-	response := buildCoverageResponse(rulesResp.Data, scenarioMap, assertionResults)
+	response := buildCoverageResponse(rulesResp.Data, scenarioMap, expectationResults)
 	writeJSON(w, http.StatusOK, response)
 }
 

@@ -13,7 +13,7 @@ import (
 // Retention day fields are floored at 1 so a config write cannot configure
 // immediate deletion of run logs or assessments.
 func TestHandleUpdateConfig_RetentionDaysRejectsZero(t *testing.T) {
-	for _, key := range []string{"assessment_log_retention_days", "assessment_retention_days"} {
+	for _, key := range []string{"run_log_retention_days", "run_retention_days"} {
 		t.Run(key, func(t *testing.T) {
 			ts := testserver.New(t)
 
@@ -39,7 +39,7 @@ func TestHandleUpdateConfig_RetentionDaysPersistsValid(t *testing.T) {
 	ts := testserver.New(t)
 
 	resp := ts.Put(t, "/api/config", web.UpdateConfigRequest{
-		Key:   "assessment_retention_days",
+		Key:   "run_retention_days",
 		Value: []byte(`14`),
 	})
 	defer resp.Body.Close()
@@ -47,5 +47,5 @@ func TestHandleUpdateConfig_RetentionDaysPersistsValid(t *testing.T) {
 
 	cfg, err := ts.Stores.Config.GetAppConfig(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, 14, cfg.AssessmentRetentionDays)
+	assert.Equal(t, 14, cfg.RunRetentionDays)
 }

@@ -4,32 +4,32 @@
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import SectionCards from '$lib/components/SectionCards.svelte';
 	import RecentRunsTable from '$lib/components/RecentRunsTable.svelte';
-	import RecentScenariosSection from '$lib/components/RecentScenariosSection.svelte';
+	import RecentAssessmentsSection from '$lib/components/RecentAssessmentsSection.svelte';
 	import RecentPacksSection from '$lib/components/RecentPacksSection.svelte';
 	import { runs, activeRuns, loadRuns } from '$lib/stores/runs';
-	import { loadScenarioPage } from '$lib/stores/scenarios';
+	import { loadAssessmentPage } from '$lib/stores/assessments';
 	import { packs, loadPacks } from '$lib/stores/packs';
 	import { getRuleCoverage } from '$lib/api/client';
-	import type { SavedScenario } from '$lib/types';
+	import type { Assessment } from '$lib/types';
 
 	let loading = $state(true);
 	let error = $state('');
 	let ruleCoveragePercent = $state(0);
-	let recentScenarios = $state<SavedScenario[]>([]);
-	let savedScenariosTotal = $state(0);
+	let recentAssessments = $state<Assessment[]>([]);
+	let savedAssessmentsTotal = $state(0);
 
 	const recentRuns = $derived($runs.slice(0, 5));
 	const recentPacks = $derived($packs.slice(0, 5));
 
 	onMount(async () => {
 		try {
-			const [, scenarioPage] = await Promise.all([
+			const [, assessmentPage] = await Promise.all([
 				loadRuns(),
-				loadScenarioPage(1, 5, {}),
+				loadAssessmentPage(1, 5, {}),
 				loadPacks()
 			]);
-			recentScenarios = scenarioPage.scenarios;
-			savedScenariosTotal = scenarioPage.total;
+			recentAssessments = assessmentPage.assessments;
+			savedAssessmentsTotal = assessmentPage.total;
 
 			// Load rule coverage (non-blocking, may fail if no elastic connector)
 			try {
@@ -74,12 +74,12 @@
 					totalRuns={$runs.length}
 					{ruleCoveragePercent}
 					activeRuns={$activeRuns.length}
-					savedScenarios={savedScenariosTotal}
+					savedAssessments={savedAssessmentsTotal}
 				/>
 
 				<div class="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-3">
 					<RecentRunsTable runs={recentRuns} />
-					<RecentScenariosSection scenarios={recentScenarios} />
+					<RecentAssessmentsSection assessments={recentAssessments} />
 					<RecentPacksSection packs={recentPacks} />
 				</div>
 			{/if}

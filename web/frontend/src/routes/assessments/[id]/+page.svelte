@@ -24,22 +24,22 @@
 	import XCircleIcon from '@lucide/svelte/icons/x-circle';
 	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 	import {
-		getScenario,
-		runScenario,
-		deleteScenario,
-		getScheduleByScenario,
+		getAssessment,
+		runAssessment,
+		deleteAssessment,
+		getScheduleByAssessment,
 		listRuns
 	} from '$lib/api/client';
 	import { scenarioTypeVariant, formatUserEmail, formatDuration } from '$lib/utils/format';
 	import { describeCronExpression } from '$lib/utils/cron';
 	import { parseScenarioYAML } from '$lib/utils/yaml-parser';
-	import type { SavedScenario, Schedule, Run } from '$lib/types';
+	import type { Assessment, Schedule, Run } from '$lib/types';
 
 	let id = $derived($page.params.id!);
 
 	let loading = $state(true);
 	let loadError = $state('');
-	let scenario = $state<SavedScenario | null>(null);
+	let assessment = $state<Assessment | null>(null);
 	let schedule = $state<Schedule | null>(null);
 	let runs = $state<Run[]>([]);
 	let runsLoading = $state(true);
@@ -59,17 +59,17 @@
 	onMount(async () => {
 		nowTimer = setInterval(() => (now = Date.now()), 30_000);
 		try {
-			scenario = await getScenario(id);
-			schedule = await getScheduleByScenario(id);
+			assessment = await getAssessment(id);
+			schedule = await getScheduleByAssessment(id);
 		} catch (e) {
-			loadError = e instanceof Error ? e.message : 'Failed to load scenario';
+			loadError = e instanceof Error ? e.message : 'Failed to load assessment';
 			loading = false;
 			return;
 		}
 		loading = false;
 
 		try {
-			const all = await listRuns(1, 100, { scenarioId: id });
+			const all = await listRuns(1, 100, { assessmentId: id });
 			runs = all.runs;
 		} catch {
 			runs = [];
@@ -82,7 +82,7 @@
 		if (nowTimer) clearInterval(nowTimer);
 	});
 
-	let parsed = $derived(scenario ? parseScenarioYAML(scenario.yaml) : null);
+	let parsed = $derived(assessment ? parseScenarioYAML(assessment.yaml) : null);
 	let parsedScenarios = $derived(parsed?.scenarios ?? []);
 	let parsedTarget = $derived(parsed?.target);
 	let builderSupported = $derived(parsed?.builderSupported !== false);
@@ -109,8 +109,8 @@
 
 	let recentRuns = $derived(runs.slice(0, 8));
 
-	let scenarioYamlBytes = $derived(scenario ? new Blob([scenario.yaml]).size : 0);
-	let scenarioYamlLines = $derived(scenario ? scenario.yaml.split('\n').length : 0);
+	let scenarioYamlBytes = $derived(assessment ? new Blob([assessment.yaml]).size : 0);
+	let scenarioYamlLines = $derived(assessment ? assessment.yaml.split('\n').length : 0);
 
 	let nextRunAt = $derived.by(() => {
 		if (!schedule || !schedule.enabled) return null;
@@ -200,12 +200,12 @@
 	}
 
 	async function handleRun() {
-		if (!scenario) return;
+		if (!assessment) return;
 		actionError = '';
 		running = true;
 		try {
-			const resp = await runScenario(scenario.id);
-			await goto(`/assessments/${resp.runId}`);
+			const resp = await runAssessment(assessment.id);
+			await goto(`/runs/${resp.runId}`);
 		} catch (e) {
 			actionError = e instanceof Error ? e.message : 'Run failed';
 		} finally {
@@ -214,12 +214,12 @@
 	}
 
 	async function handleDelete() {
-		if (!scenario) return;
+		if (!assessment) return;
 		actionError = '';
 		deleting = true;
 		try {
-			await deleteScenario(scenario.id);
-			await goto('/scenarios');
+			await deleteAssessment(assessment.id);
+			await goto('/assessments');
 		} catch (e) {
 			actionError = e instanceof Error ? e.message : 'Delete failed';
 			deleting = false;
@@ -227,13 +227,13 @@
 	}
 
 	async function reloadSchedule() {
-		schedule = await getScheduleByScenario(id);
+		schedule = await getScheduleByAssessment(id);
 	}
 
 	async function copyYaml() {
-		if (!scenario) return;
+		if (!assessment) return;
 		try {
-			await navigator.clipboard.writeText(scenario.yaml);
+			await navigator.clipboard.writeText(assessment.yaml);
 			copied = true;
 			setTimeout(() => (copied = false), 1400);
 		} catch {
@@ -261,23 +261,23 @@
 		<Skeleton class="h-24 w-full" />
 		<Skeleton class="h-32 w-full" />
 	</div>
-{:else if loadError || !scenario}
+{:else if loadError || !assessment}
 	<div class="space-y-4">
 		<Alert.Root variant="destructive">
-			<Alert.Description>{loadError || 'Scenario not found'}</Alert.Description>
+			<Alert.Description>{loadError || 'Assessment not found'}</Alert.Description>
 		</Alert.Root>
-		<Button variant="outline" onclick={() => goto('/scenarios')}>Back to scenarios</Button>
+		<Button variant="outline" onclick={() => goto('/assessments')}>Back to assessments</Button>
 	</div>
 {:else}
 	<div class="space-y-6">
 		<Breadcrumb.Root class="animate-fade-up stagger-1">
 			<Breadcrumb.List>
 				<Breadcrumb.Item>
-					<Breadcrumb.Link href="/scenarios">Scenarios</Breadcrumb.Link>
+					<Breadcrumb.Link href="/assessments">Assessments</Breadcrumb.Link>
 				</Breadcrumb.Item>
 				<Breadcrumb.Separator />
 				<Breadcrumb.Item>
-					<Breadcrumb.Page class="truncate max-w-md">{scenario.name}</Breadcrumb.Page>
+					<Breadcrumb.Page class="truncate max-w-md">{assessment.name}</Breadcrumb.Page>
 				</Breadcrumb.Item>
 			</Breadcrumb.List>
 		</Breadcrumb.Root>
@@ -285,23 +285,23 @@
 		<div class="flex items-start justify-between gap-4 animate-fade-up stagger-1">
 			<div class="min-w-0 space-y-2">
 				<div class="flex items-center gap-3 flex-wrap min-w-0">
-					<h1 class="text-2xl font-bold truncate">{scenario.name}</h1>
-					<Badge variant={scenarioTypeVariant(scenario.type)} class="capitalize shrink-0">
-						{scenario.type || 'standard'}
+					<h1 class="text-2xl font-bold truncate">{assessment.name}</h1>
+					<Badge variant={scenarioTypeVariant(assessment.type)} class="capitalize shrink-0">
+						{assessment.type || 'standard'}
 					</Badge>
 				</div>
 				<p class="text-sm text-muted-foreground">
-					Created {new Date(scenario.createdAt).toLocaleDateString()}
-					{#if scenario.createdBy && scenario.createdBy !== 'anonymous'}
+					Created {new Date(assessment.createdAt).toLocaleDateString()}
+					{#if assessment.createdBy && assessment.createdBy !== 'anonymous'}
 						by
 						<Tooltip.Root>
 							<Tooltip.Trigger class="cursor-default underline-offset-2 hover:underline">
-								{formatUserEmail(scenario.createdBy)}
+								{formatUserEmail(assessment.createdBy)}
 							</Tooltip.Trigger>
-							<Tooltip.Content>{scenario.createdBy}</Tooltip.Content>
+							<Tooltip.Content>{assessment.createdBy}</Tooltip.Content>
 						</Tooltip.Root>
 					{/if}
-					· Updated {new Date(scenario.updatedAt).toLocaleDateString()}
+					· Updated {new Date(assessment.updatedAt).toLocaleDateString()}
 				</p>
 			</div>
 
@@ -319,7 +319,7 @@
 					<CalendarIcon data-icon="inline-start" />
 					{schedule ? 'Schedule' : 'Set schedule'}
 				</Button>
-				<Button variant="outline" size="sm" onclick={() => goto(`/scenarios/${scenario!.id}/edit`)}>
+				<Button variant="outline" size="sm" onclick={() => goto(`/assessments/${assessment!.id}/edit`)}>
 					<PenLineIcon data-icon="inline-start" />
 					Edit
 				</Button>
@@ -420,7 +420,7 @@
 				<div
 					class="rounded-lg border border-dashed bg-card/40 px-5 py-4 text-sm text-muted-foreground"
 				>
-					This scenario uses a detonator type that isn't introspected. Review the source below.
+					This assessment uses a detonator type that isn't introspected. Review the source below.
 				</div>
 			{/if}
 		</section>
@@ -498,7 +498,7 @@
 					<div class="flex-1">
 						<div class="font-medium">No schedule</div>
 						<div class="text-sm text-muted-foreground">
-							Run this scenario automatically on a recurring cadence.
+							Run this assessment automatically on a recurring cadence.
 						</div>
 					</div>
 					<span class="text-sm text-muted-foreground">Set schedule →</span>
@@ -516,7 +516,7 @@
 				</h2>
 				{#if runs.length > recentRuns.length}
 					<a
-						href="/assessments"
+						href="/runs"
 						class="text-xs text-muted-foreground hover:text-foreground transition-colors"
 					>
 						View all →
@@ -544,7 +544,7 @@
 						{@const tone = runStatusTone(r)}
 						<button
 							type="button"
-							onclick={() => goto(`/assessments/${r.id}`)}
+							onclick={() => goto(`/runs/${r.id}`)}
 							class="group text-left rounded-md border bg-card hover:bg-accent/40 hover:border-foreground/20 transition-colors px-3 py-2.5 flex items-start gap-2.5"
 						>
 							<span
@@ -596,7 +596,7 @@
 						/>
 						<span class="text-sm font-medium">Source</span>
 						<span class="font-mono text-xs text-muted-foreground truncate">
-							{scenario.name}.yaml
+							{assessment.name}.yaml
 						</span>
 						<span class="ml-auto text-xs text-muted-foreground tabular-nums">
 							{scenarioYamlLines} lines · {formatBytes(scenarioYamlBytes)}
@@ -621,7 +621,7 @@
 					</Collapsible.Trigger>
 					<Collapsible.Content>
 						<div class="border-t">
-							<YamlEditor value={scenario.yaml} readonly />
+							<YamlEditor value={assessment.yaml} readonly />
 						</div>
 					</Collapsible.Content>
 				</div>
@@ -631,7 +631,7 @@
 
 	<ScheduleDialog
 		bind:open={scheduleDialogOpen}
-		{scenario}
+		{assessment}
 		onclose={() => (scheduleDialogOpen = false)}
 		onsuccess={async () => {
 			scheduleDialogOpen = false;
@@ -642,9 +642,9 @@
 	<Dialog.Root bind:open={deleteDialogOpen}>
 		<Dialog.Content>
 			<Dialog.Header>
-				<Dialog.Title>Delete Scenario</Dialog.Title>
+				<Dialog.Title>Delete Assessment</Dialog.Title>
 				<Dialog.Description>
-					Are you sure you want to delete "{scenario.name}"? This action cannot be undone.
+					Are you sure you want to delete "{assessment.name}"? This action cannot be undone.
 				</Dialog.Description>
 			</Dialog.Header>
 			<div class="flex justify-end gap-2 pt-4">

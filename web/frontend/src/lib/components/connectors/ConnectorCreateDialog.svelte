@@ -182,7 +182,7 @@
 		if (!o) resetForm();
 	}}
 >
-	<Dialog.Content class="max-w-2xl">
+	<Dialog.Content class="sm:max-w-2xl">
 		{#if step === 'type'}
 			<Dialog.Header>
 				<Dialog.Title>New Connector</Dialog.Title>

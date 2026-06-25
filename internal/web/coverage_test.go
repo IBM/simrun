@@ -14,7 +14,7 @@ func TestBuildRuleNameToScenariosMap(t *testing.T) {
 	scenario1ID := uuid.New()
 	scenario2ID := uuid.New()
 
-	scenarios := []db.SavedScenario{
+	scenarios := []db.Assessment{
 		{
 			ID:   scenario1ID,
 			Name: "AWS IAM Brute Force Test",
@@ -65,7 +65,7 @@ func TestBuildRuleNameToScenariosMap(t *testing.T) {
 }
 
 func TestBuildRuleNameToScenariosMap_InvalidYAML(t *testing.T) {
-	scenarios := []db.SavedScenario{
+	scenarios := []db.Assessment{
 		{
 			ID:   uuid.New(),
 			Name: "Bad Scenario",
@@ -110,7 +110,7 @@ func TestBuildCoverageResponse(t *testing.T) {
 
 	runID := uuid.New()
 	now := time.Now()
-	assertionResults := []db.LatestAssertionResult{
+	assertionResults := []db.LatestExpectationResult{
 		{
 			AlertName: "Covered Rule",
 			Passed:    true,

@@ -453,7 +453,7 @@
 							<Table.Cell>
 								{#if rule.lastResult}
 									<a
-										href="/assessments/{rule.lastResult.runId}"
+										href="/runs/{rule.lastResult.runId}"
 										class="inline-flex items-center gap-2"
 										onclick={(e: Event) => e.stopPropagation()}
 									>
@@ -486,7 +486,7 @@
 									<Table.Cell colspan={6} class="pl-8">
 										<div class="flex items-center gap-3 text-sm">
 											<a
-												href="/scenarios/{scenario.scenarioId}"
+												href="/assessments/{scenario.scenarioId}"
 												class="font-medium text-primary hover:underline"
 											>
 												{scenario.scenarioName}

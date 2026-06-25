@@ -14,10 +14,10 @@ import (
 )
 
 type scenarioListResponse struct {
-	Scenarios []db.SavedScenario `json:"scenarios"`
-	Total     int                `json:"total"`
-	Page      int                `json:"page"`
-	PerPage   int                `json:"perPage"`
+	Assessments []db.Assessment `json:"assessments"`
+	Total       int             `json:"total"`
+	Page        int             `json:"page"`
+	PerPage     int             `json:"perPage"`
 }
 
 const sampleYAML = `scenarios:
@@ -34,7 +34,7 @@ const sampleYAML = `scenarios:
 func TestHandleLint_ValidYAML(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Post(t, "/api/scenarios/lint", web.LintRequest{YAML: sampleYAML})
+	resp := ts.Post(t, "/api/assessments/lint", web.LintRequest{YAML: sampleYAML})
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -50,7 +50,7 @@ func TestHandleLint_ValidYAML(t *testing.T) {
 func TestHandleLint_InvalidYAML(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Post(t, "/api/scenarios/lint", web.LintRequest{YAML: "scenarios: [oops"})
+	resp := ts.Post(t, "/api/assessments/lint", web.LintRequest{YAML: "scenarios: [oops"})
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -64,53 +64,53 @@ func TestScenarioCRUD(t *testing.T) {
 	ts := testserver.New(t)
 
 	// Create
-	resp := ts.Post(t, "/api/scenarios", web.SaveScenarioRequest{
+	resp := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{
 		Name: "my scenario",
 		YAML: sampleYAML,
 	})
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	var saved db.SavedScenario
+	var saved db.Assessment
 	testserver.DecodeJSON(t, resp, &saved)
 	assert.Equal(t, "my scenario", saved.Name)
 	assert.Equal(t, web.ScenarioTypeStandard, saved.Type, "should default to standard")
 	id := saved.ID
 
 	// List
-	resp = ts.Get(t, "/api/scenarios")
+	resp = ts.Get(t, "/api/assessments")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var list scenarioListResponse
 	testserver.DecodeJSON(t, resp, &list)
-	assert.Len(t, list.Scenarios, 1)
+	assert.Len(t, list.Assessments, 1)
 	assert.Equal(t, 1, list.Total)
 	assert.Equal(t, 1, list.Page)
 	assert.Equal(t, 50, list.PerPage)
 
 	// Get
-	resp = ts.Get(t, "/api/scenarios/"+id.String())
+	resp = ts.Get(t, "/api/assessments/"+id.String())
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	var got db.SavedScenario
+	var got db.Assessment
 	testserver.DecodeJSON(t, resp, &got)
 	assert.Equal(t, "my scenario", got.Name)
 
 	// Update
-	resp = ts.Put(t, "/api/scenarios/"+id.String(), web.SaveScenarioRequest{
+	resp = ts.Put(t, "/api/assessments/"+id.String(), web.SaveAssessmentRequest{
 		Name: "renamed",
 		YAML: sampleYAML,
 	})
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	resp.Body.Close()
 
-	resp = ts.Get(t, "/api/scenarios/"+id.String())
+	resp = ts.Get(t, "/api/assessments/"+id.String())
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	testserver.DecodeJSON(t, resp, &got)
 	assert.Equal(t, "renamed", got.Name)
 
 	// Delete
-	resp = ts.Delete(t, "/api/scenarios/"+id.String())
+	resp = ts.Delete(t, "/api/assessments/"+id.String())
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	resp.Body.Close()
 
-	resp = ts.Get(t, "/api/scenarios/"+id.String())
+	resp = ts.Get(t, "/api/assessments/"+id.String())
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	resp.Body.Close()
 }
@@ -118,7 +118,7 @@ func TestScenarioCRUD(t *testing.T) {
 func TestHandleSaveScenario_RejectsInvalidType(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Post(t, "/api/scenarios", web.SaveScenarioRequest{
+	resp := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{
 		Name: "x",
 		Type: "garbage",
 		YAML: sampleYAML,
@@ -131,7 +131,7 @@ func TestHandleSaveScenario_RejectsInvalidType(t *testing.T) {
 func TestHandleGetScenario_BadID(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Get(t, "/api/scenarios/not-a-uuid")
+	resp := ts.Get(t, "/api/assessments/not-a-uuid")
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -139,7 +139,7 @@ func TestHandleGetScenario_BadID(t *testing.T) {
 func TestHandleGetScenario_NotFound(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Get(t, "/api/scenarios/"+uuid.New().String())
+	resp := ts.Get(t, "/api/assessments/"+uuid.New().String())
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
@@ -148,17 +148,17 @@ func TestHandleRun_StartsRun(t *testing.T) {
 	ts := testserver.New(t)
 
 	// Save a scenario first.
-	resp := ts.Post(t, "/api/scenarios", web.SaveScenarioRequest{
+	resp := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{
 		Name: "to run",
 		YAML: sampleYAML,
 	})
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	var saved db.SavedScenario
+	var saved db.Assessment
 	testserver.DecodeJSON(t, resp, &saved)
 
 	// Run it.
-	resp = ts.Post(t, "/api/scenarios/run", web.RunRequest{
-		ScenarioID: saved.ID.String(),
+	resp = ts.Post(t, "/api/runs", web.RunRequest{
+		AssessmentID: saved.ID.String(),
 	})
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
@@ -183,7 +183,7 @@ func TestHandleRun_StartsRun(t *testing.T) {
 func TestHandleRun_BadScenarioID(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Post(t, "/api/scenarios/run", web.RunRequest{ScenarioID: "not-a-uuid"})
+	resp := ts.Post(t, "/api/runs", web.RunRequest{AssessmentID: "not-a-uuid"})
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -191,22 +191,22 @@ func TestHandleRun_BadScenarioID(t *testing.T) {
 func TestHandleRun_MissingScenario(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Post(t, "/api/scenarios/run", web.RunRequest{ScenarioID: uuid.New().String()})
+	resp := ts.Post(t, "/api/runs", web.RunRequest{AssessmentID: uuid.New().String()})
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	assert.Contains(t, testserver.ReadBody(t, resp), "scenario not found")
+	assert.Contains(t, testserver.ReadBody(t, resp), "assessment not found")
 }
 
 func TestHandleListScenarios_Empty(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Get(t, "/api/scenarios")
+	resp := ts.Get(t, "/api/assessments")
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var got scenarioListResponse
 	testserver.DecodeJSON(t, resp, &got)
-	assert.Empty(t, got.Scenarios)
+	assert.Empty(t, got.Assessments)
 	assert.Equal(t, 0, got.Total)
 	assert.Equal(t, 1, got.Page)
 	assert.Equal(t, 50, got.PerPage)
@@ -223,39 +223,39 @@ func TestHandleListScenarios_Pagination(t *testing.T) {
 	}
 
 	// Page 1, per_page=2 — newest two.
-	resp := ts.Get(t, "/api/scenarios?page=1&per_page=2")
+	resp := ts.Get(t, "/api/assessments?page=1&per_page=2")
 	defer resp.Body.Close()
 	var got scenarioListResponse
 	testserver.DecodeJSON(t, resp, &got)
-	require.Len(t, got.Scenarios, 2)
+	require.Len(t, got.Assessments, 2)
 	assert.Equal(t, 5, got.Total)
 	assert.Equal(t, 1, got.Page)
 	assert.Equal(t, 2, got.PerPage)
-	assert.Equal(t, "scen-e", got.Scenarios[0].Name)
-	assert.Equal(t, "scen-d", got.Scenarios[1].Name)
+	assert.Equal(t, "scen-e", got.Assessments[0].Name)
+	assert.Equal(t, "scen-d", got.Assessments[1].Name)
 
 	// Page 3, per_page=2 — only "scen-a" left.
-	resp2 := ts.Get(t, "/api/scenarios?page=3&per_page=2")
+	resp2 := ts.Get(t, "/api/assessments?page=3&per_page=2")
 	defer resp2.Body.Close()
 	var got2 scenarioListResponse
 	testserver.DecodeJSON(t, resp2, &got2)
-	require.Len(t, got2.Scenarios, 1)
+	require.Len(t, got2.Assessments, 1)
 	assert.Equal(t, 5, got2.Total)
-	assert.Equal(t, "scen-a", got2.Scenarios[0].Name)
+	assert.Equal(t, "scen-a", got2.Assessments[0].Name)
 
 	// Page beyond range — empty slice, total still reported.
-	resp3 := ts.Get(t, "/api/scenarios?page=10&per_page=2")
+	resp3 := ts.Get(t, "/api/assessments?page=10&per_page=2")
 	defer resp3.Body.Close()
 	var got3 scenarioListResponse
 	testserver.DecodeJSON(t, resp3, &got3)
-	assert.Empty(t, got3.Scenarios)
+	assert.Empty(t, got3.Assessments)
 	assert.Equal(t, 5, got3.Total)
 }
 
 func TestHandleListScenarios_PerPageClamped(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Get(t, "/api/scenarios?per_page=500")
+	resp := ts.Get(t, "/api/assessments?per_page=500")
 	defer resp.Body.Close()
 	var got scenarioListResponse
 	testserver.DecodeJSON(t, resp, &got)
@@ -281,16 +281,16 @@ func TestHandleListScenarios_Filters(t *testing.T) {
 	ts.Stores.Scenario.SetUpdatedAt(old.ID, time.Now().Add(-72*time.Hour))
 
 	t.Run("name ILIKE", func(t *testing.T) {
-		resp := ts.Get(t, "/api/scenarios?name=brute")
+		resp := ts.Get(t, "/api/assessments?name=brute")
 		defer resp.Body.Close()
 		var got scenarioListResponse
 		testserver.DecodeJSON(t, resp, &got)
-		require.Len(t, got.Scenarios, 1)
-		assert.Equal(t, "login bruteforce", got.Scenarios[0].Name)
+		require.Len(t, got.Assessments, 1)
+		assert.Equal(t, "login bruteforce", got.Assessments[0].Name)
 	})
 
 	t.Run("multi type", func(t *testing.T) {
-		resp := ts.Get(t, "/api/scenarios?type=standard&type=explore")
+		resp := ts.Get(t, "/api/assessments?type=standard&type=explore")
 		defer resp.Body.Close()
 		var got scenarioListResponse
 		testserver.DecodeJSON(t, resp, &got)
@@ -298,7 +298,7 @@ func TestHandleListScenarios_Filters(t *testing.T) {
 	})
 
 	t.Run("since window", func(t *testing.T) {
-		resp := ts.Get(t, "/api/scenarios?since=24h")
+		resp := ts.Get(t, "/api/assessments?since=24h")
 		defer resp.Body.Close()
 		var got scenarioListResponse
 		testserver.DecodeJSON(t, resp, &got)
@@ -306,27 +306,59 @@ func TestHandleListScenarios_Filters(t *testing.T) {
 	})
 
 	t.Run("combined filters", func(t *testing.T) {
-		resp := ts.Get(t, "/api/scenarios?name=ransom&type=explore&since=24h")
+		resp := ts.Get(t, "/api/assessments?name=ransom&type=explore&since=24h")
 		defer resp.Body.Close()
 		var got scenarioListResponse
 		testserver.DecodeJSON(t, resp, &got)
-		require.Len(t, got.Scenarios, 1)
-		assert.Equal(t, "exfil ransom", got.Scenarios[0].Name)
+		require.Len(t, got.Assessments, 1)
+		assert.Equal(t, "exfil ransom", got.Assessments[0].Name)
 	})
+}
+
+func TestHandleGetAssessmentByName(t *testing.T) {
+	ts := testserver.New(t)
+
+	resp := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{
+		Name: "aws-privesc",
+		YAML: sampleYAML,
+	})
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
+	resp = ts.Get(t, "/api/assessments/by-name/aws-privesc")
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var got db.Assessment
+	testserver.DecodeJSON(t, resp, &got)
+	assert.Equal(t, "aws-privesc", got.Name)
+	assert.Equal(t, sampleYAML, got.YAML, "by-name response includes the raw yaml field")
+}
+
+func TestHandleSaveAssessment_DuplicateNameReturns409(t *testing.T) {
+	ts := testserver.New(t)
+
+	first := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{Name: "dupe", YAML: sampleYAML})
+	require.Equal(t, http.StatusCreated, first.StatusCode)
+	first.Body.Close()
+
+	second := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{Name: "dupe", YAML: sampleYAML})
+	defer second.Body.Close()
+	assert.Equal(t, http.StatusConflict, second.StatusCode)
+	assert.Contains(t, testserver.ReadBody(t, second), "already exists")
 }
 
 func TestHandleListScenarios_RejectsBadFilters(t *testing.T) {
 	ts := testserver.New(t)
 
-	resp := ts.Get(t, "/api/scenarios?type=bogus")
+	resp := ts.Get(t, "/api/assessments?type=bogus")
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
-	resp2 := ts.Get(t, "/api/scenarios?since=not-a-duration")
+	resp2 := ts.Get(t, "/api/assessments?since=not-a-duration")
 	defer resp2.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp2.StatusCode)
 
-	resp3 := ts.Get(t, "/api/scenarios?since=0s")
+	resp3 := ts.Get(t, "/api/assessments?since=0s")
 	defer resp3.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp3.StatusCode)
 }

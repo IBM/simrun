@@ -96,28 +96,28 @@ func parseAppConfig(all map[string]json.RawMessage) config.AppConfig {
 			cfg.SSHLoggingEnabled = b
 		}
 	}
-	if v, ok := all["assessment_log_retention_enabled"]; ok {
+	if v, ok := all["run_log_retention_enabled"]; ok {
 		var b bool
 		if err := json.Unmarshal(v, &b); err == nil {
-			cfg.AssessmentLogRetentionEnabled = b
+			cfg.RunLogRetentionEnabled = b
 		}
 	}
-	if v, ok := all["assessment_log_retention_days"]; ok {
+	if v, ok := all["run_log_retention_days"]; ok {
 		var n int
 		if err := json.Unmarshal(v, &n); err == nil && n > 0 {
-			cfg.AssessmentLogRetentionDays = n
+			cfg.RunLogRetentionDays = n
 		}
 	}
-	if v, ok := all["assessment_retention_enabled"]; ok {
+	if v, ok := all["run_retention_enabled"]; ok {
 		var b bool
 		if err := json.Unmarshal(v, &b); err == nil {
-			cfg.AssessmentRetentionEnabled = b
+			cfg.RunRetentionEnabled = b
 		}
 	}
-	if v, ok := all["assessment_retention_days"]; ok {
+	if v, ok := all["run_retention_days"]; ok {
 		var n int
 		if err := json.Unmarshal(v, &n); err == nil && n > 0 {
-			cfg.AssessmentRetentionDays = n
+			cfg.RunRetentionDays = n
 		}
 	}
 
@@ -138,10 +138,10 @@ func appConfigKVs(c config.AppConfig) []appConfigKV {
 		{"terraform_version", c.TerraformVersion},
 		{"pack_logs_enabled", c.PackLogsEnabled},
 		{"ssh_logging_enabled", c.SSHLoggingEnabled},
-		{"assessment_log_retention_enabled", c.AssessmentLogRetentionEnabled},
-		{"assessment_log_retention_days", c.AssessmentLogRetentionDays},
-		{"assessment_retention_enabled", c.AssessmentRetentionEnabled},
-		{"assessment_retention_days", c.AssessmentRetentionDays},
+		{"run_log_retention_enabled", c.RunLogRetentionEnabled},
+		{"run_log_retention_days", c.RunLogRetentionDays},
+		{"run_retention_enabled", c.RunRetentionEnabled},
+		{"run_retention_days", c.RunRetentionDays},
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/IBM/simrun/internal/credentials"
 	"github.com/IBM/simrun/internal/db"
-	"github.com/IBM/simrun/internal/results"
+	"github.com/IBM/simrun/internal/runner"
 	"github.com/elastic/go-elasticsearch/v9"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -32,7 +32,7 @@ func NewResultExporter(connectorStore db.ConnectorStore, creds *credentials.Reso
 }
 
 // Export iterates enabled connectors and dispatches to the matching backend.
-func (e *ResultExporter) Export(ctx context.Context, runID uuid.UUID, scenarioResults []results.ScenarioRunResult) {
+func (e *ResultExporter) Export(ctx context.Context, runID uuid.UUID, scenarioResults []runner.ScenarioResult) {
 	if e.connectorStore == nil || len(scenarioResults) == 0 {
 		return
 	}
@@ -57,7 +57,7 @@ func (e *ResultExporter) Export(ctx context.Context, runID uuid.UUID, scenarioRe
 
 // exportToElastic indexes results into the configured datastream on an enabled
 // Elastic connector. No-op if export is disabled on the connector.
-func (e *ResultExporter) exportToElastic(ctx context.Context, connector *db.Connector, runID uuid.UUID, scenarioResults []results.ScenarioRunResult) {
+func (e *ResultExporter) exportToElastic(ctx context.Context, connector *db.Connector, runID uuid.UUID, scenarioResults []runner.ScenarioResult) {
 	var cfg ElasticConnectorConfig
 	if err := json.Unmarshal(connector.Config, &cfg); err != nil {
 		return
@@ -106,12 +106,12 @@ func (e *ResultExporter) exportToElastic(ctx context.Context, connector *db.Conn
 
 // indexResults indexes each scenario result as a document in Elasticsearch.
 // It continues on individual failures and returns the count of successfully indexed documents.
-func (e *ResultExporter) indexResults(ctx context.Context, client *elasticsearch.Client, indexName, runID string, scenarioResults []results.ScenarioRunResult) int {
+func (e *ResultExporter) indexResults(ctx context.Context, client *elasticsearch.Client, indexName, runID string, scenarioResults []runner.ScenarioResult) int {
 	indexed := 0
 	for _, scenario := range scenarioResults {
-		var assertions []map[string]interface{}
-		for _, a := range scenario.Assertions {
-			assertions = append(assertions, map[string]interface{}{
+		var expectations []map[string]interface{}
+		for _, a := range scenario.Matchers {
+			expectations = append(expectations, map[string]interface{}{
 				"matcher_type": a.MatcherName(),
 				"alert_name":   a.AlertName(),
 			})
@@ -128,7 +128,7 @@ func (e *ResultExporter) indexResults(ctx context.Context, client *elasticsearch
 			"executor":      scenario.ExecutorName,
 			"executor_type": scenario.ExecutorType,
 			"execution_id":  scenario.ExecutionId,
-			"assertions":    assertions,
+			"expectations":  expectations,
 		}
 
 		if scenario.Metadata != nil {

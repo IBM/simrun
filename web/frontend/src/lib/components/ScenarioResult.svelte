@@ -16,15 +16,15 @@
 	let result = $derived(entry.result);
 
 	let matcherNames = $derived(
-		result?.assertions && result.assertions.length > 0
-			? [...new Set(result.assertions.map((a) => a.matcherType))]
+		result?.expectations && result.expectations.length > 0
+			? [...new Set(result.expectations.map((a) => a.matcherType))]
 			: []
 	);
 
-	let assertionCounts = $derived.by(() => {
-		if (!result?.assertions || result.assertions.length === 0) return null;
-		const passed = result.assertions.filter((a) => a.passed === true).length;
-		return { passed, total: result.assertions.length };
+	let expectationCounts = $derived.by(() => {
+		if (!result?.expectations || result.expectations.length === 0) return null;
+		const passed = result.expectations.filter((a) => a.passed === true).length;
+		return { passed, total: result.expectations.length };
 	});
 
 	const phaseLabels: Record<string, string> = {
@@ -43,14 +43,14 @@
 	);
 </script>
 
-<!-- Mini assertion bar: one tick per assertion, capped before it gets noisy.
+<!-- Mini expectation bar: one tick per expectation, capped before it gets noisy.
 	 Tri-state: passed → success, failed → error, pending (undefined) → muted. -->
-{#snippet assertionBar()}
-	{#if assertionCounts}
-		{#if assertionCounts.total <= 8}
+{#snippet expectationBar()}
+	{#if expectationCounts}
+		{#if expectationCounts.total <= 8}
 			<div class="hidden items-center gap-1.5 sm:flex">
 				<div class="flex gap-[2px]">
-					{#each result?.assertions ?? [] as a}
+					{#each result?.expectations ?? [] as a}
 						<span
 							class="h-4 w-[6px] rounded-[2px] {a.passed === true
 								? 'bg-status-success'
@@ -61,12 +61,12 @@
 					{/each}
 				</div>
 				<span class="font-mono text-xs text-muted-foreground"
-					>{assertionCounts.passed}/{assertionCounts.total}</span
+					>{expectationCounts.passed}/{expectationCounts.total}</span
 				>
 			</div>
 		{:else}
 			<span class="font-mono text-xs text-muted-foreground"
-				>{assertionCounts.passed}/{assertionCounts.total} assertions</span
+				>{expectationCounts.passed}/{expectationCounts.total} expectations</span
 			>
 		{/if}
 	{/if}
@@ -138,8 +138,8 @@
 									: ''}
 							</span>
 							<Badge variant="secondary">explore</Badge>
-						{:else if assertionCounts}
-							{@render assertionBar()}
+						{:else if expectationCounts}
+							{@render expectationBar()}
 						{/if}
 						<span class="font-mono text-xs text-muted-foreground tabular-nums"
 							>{result.durationSecs.toFixed(1)}s</span
@@ -148,8 +148,8 @@
 							{result.isSuccess ? 'passed' : 'failed'}
 						</Badge>
 					{:else if entry.status === 'running'}
-						{#if assertionCounts}
-							{@render assertionBar()}
+						{#if expectationCounts}
+							{@render expectationBar()}
 						{/if}
 						{#if entry.phase}
 							<Badge variant="secondary" class="flex items-center gap-1.5">
@@ -243,23 +243,23 @@
 						</div>
 					{/if}
 
-					{#if result.assertions && result.assertions.length > 0}
+					{#if result.expectations && result.expectations.length > 0}
 						<div>
-							<span class="text-xs font-medium text-muted-foreground">Assertions</span>
+							<span class="text-xs font-medium text-muted-foreground">Expectations</span>
 							<div class="mt-1.5 space-y-1">
-								{#each result.assertions as assertion}
+								{#each result.expectations as expectation}
 									<div class="flex items-center gap-2 text-sm">
 										<span
-											class="font-mono text-xs font-semibold {assertion.passed
+											class="font-mono text-xs font-semibold {expectation.passed
 												? 'text-status-success'
 												: 'text-status-error'}"
 										>
-											{assertion.passed ? 'PASS' : 'MISSED'}
+											{expectation.passed ? 'PASS' : 'MISSED'}
 										</span>
 										<span class="font-mono text-xs text-muted-foreground"
-											>[{assertion.matcherType}]</span
+											>[{expectation.matcherType}]</span
 										>
-										<span>{assertion.alertName}</span>
+										<span>{expectation.alertName}</span>
 									</div>
 								{/each}
 							</div>

@@ -7,17 +7,17 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ScenarioEditor from '$lib/components/ScenarioEditor.svelte';
 	import ScheduleDialog from '$lib/components/ScheduleDialog.svelte';
-	import { getScenario, updateScenario, runScenario } from '$lib/api/client';
+	import { getAssessment, updateAssessment, runAssessment } from '$lib/api/client';
 	import { parseScenarioYAML } from '$lib/utils/yaml-parser';
 	import { createEmptyTarget } from '$lib/utils/yaml-generator';
 	import type { FormScenario, FormTarget } from '$lib/utils/yaml-generator';
-	import type { SavedScenario } from '$lib/types';
+	import type { Assessment } from '$lib/types';
 
 	let id = $derived($page.params.id!);
 
 	let loading = $state(true);
 	let loadError = $state('');
-	let scenario = $state<SavedScenario | null>(null);
+	let assessment = $state<Assessment | null>(null);
 	let initialScenarios = $state<FormScenario[]>([]);
 	let initialTarget = $state<FormTarget>(createEmptyTarget());
 	let initialYaml = $state('');
@@ -27,10 +27,10 @@
 
 	onMount(async () => {
 		try {
-			const s = await getScenario(id);
-			scenario = s;
-			initialYaml = s.yaml;
-			const parseResult = parseScenarioYAML(s.yaml);
+			const a = await getAssessment(id);
+			assessment = a;
+			initialYaml = a.yaml;
+			const parseResult = parseScenarioYAML(a.yaml);
 			if (parseResult.success && parseResult.builderSupported) {
 				initialScenarios = parseResult.scenarios || [];
 				initialTarget = parseResult.target || createEmptyTarget();
@@ -39,23 +39,23 @@
 				builderSupported = false;
 			}
 		} catch (e) {
-			loadError = e instanceof Error ? e.message : 'Failed to load scenario';
+			loadError = e instanceof Error ? e.message : 'Failed to load assessment';
 		} finally {
 			loading = false;
 		}
 	});
 
 	async function handleSave(name: string, yaml: string, opts: { run?: boolean }) {
-		if (!scenario) return;
-		await updateScenario(scenario.id, name, yaml, scenario.type);
+		if (!assessment) return;
+		await updateAssessment(assessment.id, name, yaml, assessment.type);
 		if (opts.run) {
-			const resp = await runScenario(scenario.id);
-			await goto(`/assessments/${resp.runId}`);
+			const resp = await runAssessment(assessment.id);
+			await goto(`/runs/${resp.runId}`);
 		}
 	}
 
 	function handleCancel() {
-		goto('/scenarios');
+		goto('/assessments');
 	}
 
 	function openSchedule() {
@@ -76,14 +76,14 @@
 			<Alert.Description>{loadError}</Alert.Description>
 		</Alert.Root>
 		<div class="mt-4">
-			<Button variant="outline" onclick={handleCancel}>Back to scenarios</Button>
+			<Button variant="outline" onclick={handleCancel}>Back to assessments</Button>
 		</div>
 	</div>
-{:else if scenario}
+{:else if assessment}
 	<ScenarioEditor
 		mode="edit"
-		type={scenario.type}
-		initialName={scenario.name}
+		type={assessment.type}
+		initialName={assessment.name}
 		{initialScenarios}
 		{initialTarget}
 		{initialYaml}
@@ -95,7 +95,7 @@
 
 	<ScheduleDialog
 		bind:open={scheduleDialogOpen}
-		{scenario}
+		{assessment}
 		onclose={() => (scheduleDialogOpen = false)}
 		onsuccess={() => (scheduleDialogOpen = false)}
 	/>

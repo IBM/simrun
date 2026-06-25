@@ -12,15 +12,15 @@ import (
 func RunScenariosParallel(
 	scenarios []*runner.Scenario,
 	parallelism int,
-	callback func(result *ScenarioRunResult),
-) []ScenarioRunResult {
+	callback func(result *runner.ScenarioResult),
+) []runner.ScenarioResult {
 	numWorkers := parallelism
 	if numScenarios := len(scenarios); numScenarios < numWorkers {
 		numWorkers = numScenarios
 	}
 
 	scenarioChan := make(chan *runner.Scenario, len(scenarios))
-	resultsChan := make(chan *ScenarioRunResult, len(scenarios))
+	resultsChan := make(chan *runner.ScenarioResult, len(scenarios))
 
 	var wg sync.WaitGroup
 
@@ -45,7 +45,7 @@ func RunScenariosParallel(
 		close(resultsChan)
 	}()
 
-	var allResults []ScenarioRunResult
+	var allResults []runner.ScenarioResult
 	for result := range resultsChan {
 		callback(result)
 		allResults = append(allResults, *result)
@@ -54,70 +54,18 @@ func RunScenariosParallel(
 	return allResults
 }
 
-func runSingleScenario(scenarios <-chan *runner.Scenario, results chan<- *ScenarioRunResult) {
+func runSingleScenario(scenarios <-chan *runner.Scenario, results chan<- *runner.ScenarioResult) {
 	for scenario := range scenarios {
 		testRunner := runner.NewRunner()
-		testRunner.Scenarios = append(testRunner.Scenarios, scenario)
 		testRunner.Interval = 10 * time.Second
 
 		start := time.Now()
-		scenarioResults, runError := testRunner.Run()
+		result := testRunner.Run(scenario)
 		end := time.Now()
 
-		var executorType, executorName, simulationID string
-		if scenario.Detonator != nil {
-			executorType = "detonator"
-			executorName = scenario.Detonator.String()
-			simulationID = scenario.Detonator.SimulationId()
-		} else if scenario.Injector != nil {
-			executorType = "injector"
-			executorName = scenario.Injector.String()
-		} else {
-			executorType = "unknown"
-			executorName = "unknown"
-		}
-
-		if len(scenarioResults) > 0 {
-			results <- &ScenarioRunResult{
-				Name:                    scenario.Name,
-				ErrorMessage:            scenarioResults[0].Error,
-				Success:                 scenarioResults[0].Success,
-				DurationSeconds:         end.Sub(start).Seconds(),
-				MatchingDurationSeconds: scenarioResults[0].MatchingDurationSeconds,
-				TimeExecuted:            start,
-				ExecutorName:            executorName,
-				ExecutorType:            executorType,
-				ExecutionId:             scenarioResults[0].ExecutionId,
-				SimulationID:            simulationID,
-				Assertions:              scenario.Assertions,
-				FailedAssertions:        scenario.FailedAssertions,
-				Indicators:              scenario.Indicators,
-				Metadata:                scenario.Metadata,
-				CollectedLogPath:        scenario.CollectedLogPath,
-				CollectedDocCount:       scenario.CollectedDocCount,
-				DiscoveredAlerts:        scenario.DiscoveredAlerts,
-				ExploreMode:             scenario.ExploreMode,
-			}
-		} else {
-			errorMessage := "Scenario failed to execute"
-			if runError != nil {
-				errorMessage = runError.Error()
-			}
-			results <- &ScenarioRunResult{
-				Name:                    scenario.Name,
-				ErrorMessage:            errorMessage,
-				Success:                 false,
-				DurationSeconds:         end.Sub(start).Seconds(),
-				MatchingDurationSeconds: 0,
-				TimeExecuted:            start,
-				ExecutorName:            executorName,
-				ExecutorType:            executorType,
-				ExecutionId:             "",
-				SimulationID:            simulationID,
-				Assertions:              scenario.Assertions,
-				Indicators:              scenario.Indicators,
-				Metadata:                scenario.Metadata,
-			}
-		}
+		// The runner populates everything except the wall-clock timing.
+		result.TimeExecuted = start
+		result.DurationSeconds = end.Sub(start).Seconds()
+		results <- &result
 	}
 }

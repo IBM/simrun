@@ -12,15 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func saveScenario(t *testing.T, ts *testserver.TS) db.SavedScenario {
+func saveScenario(t *testing.T, ts *testserver.TS) db.Assessment {
 	t.Helper()
-	resp := ts.Post(t, "/api/scenarios", web.SaveScenarioRequest{
+	resp := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{
 		Name: "scheduled scenario",
 		YAML: sampleYAML,
 	})
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	var saved db.SavedScenario
+	var saved db.Assessment
 	testserver.DecodeJSON(t, resp, &saved)
 	return saved
 }
@@ -31,7 +31,7 @@ func TestScheduleCRUD(t *testing.T) {
 
 	// Create
 	resp := ts.Post(t, "/api/schedules", web.CreateScheduleRequest{
-		ScenarioID:     scenario.ID.String(),
+		AssessmentID:   scenario.ID.String(),
 		CronExpression: "0 * * * *",
 		Enabled:        true,
 		Parallelism:    5,
@@ -39,7 +39,7 @@ func TestScheduleCRUD(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	var sched db.Schedule
 	testserver.DecodeJSON(t, resp, &sched)
-	assert.Equal(t, scenario.ID, sched.ScenarioID)
+	assert.Equal(t, scenario.ID, sched.AssessmentID)
 	assert.Equal(t, "0 * * * *", sched.CronExpression)
 	assert.Equal(t, 5, sched.Parallelism)
 
@@ -55,7 +55,7 @@ func TestScheduleCRUD(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// GetByScenario
-	resp = ts.Get(t, "/api/scenarios/"+scenario.ID.String()+"/schedule")
+	resp = ts.Get(t, "/api/assessments/"+scenario.ID.String()+"/schedule")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Update
@@ -86,7 +86,7 @@ func TestHandleCreateSchedule_RejectsInvalidCron(t *testing.T) {
 	scenario := saveScenario(t, ts)
 
 	resp := ts.Post(t, "/api/schedules", web.CreateScheduleRequest{
-		ScenarioID:     scenario.ID.String(),
+		AssessmentID:   scenario.ID.String(),
 		CronExpression: "garbage",
 	})
 	defer resp.Body.Close()
@@ -98,7 +98,7 @@ func TestHandleCreateSchedule_MissingScenario(t *testing.T) {
 	ts := testserver.New(t)
 
 	resp := ts.Post(t, "/api/schedules", web.CreateScheduleRequest{
-		ScenarioID:     uuid.New().String(),
+		AssessmentID:   uuid.New().String(),
 		CronExpression: "0 * * * *",
 	})
 	defer resp.Body.Close()

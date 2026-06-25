@@ -7,9 +7,12 @@ export interface Run {
 	total: number;
 	succeeded: number;
 	failed: number;
-	scenarioId?: string;
-	scenarioName?: string;
-	scenarioType?: 'standard' | 'explore' | 'collect';
+	// Scenarios that failed during execution (warmup/detonation/matching
+	// infrastructure) rather than by missing an expected alert. Subset of `failed`.
+	errors: number;
+	assessmentId?: string;
+	assessmentName?: string;
+	assessmentType?: 'standard' | 'explore' | 'collect';
 	scheduleId?: string;
 	scheduleName?: string;
 	createdBy: string;
@@ -32,7 +35,7 @@ export interface ScenarioResult {
 	executorType: string;
 	executionId: string;
 	simulationId: string;
-	assertions: AssertionInfo[] | null;
+	expectations: ExpectationInfo[] | null;
 	indicators: Indicators | null;
 	metadata: ScenarioMetadata | null;
 	collectedLogPath?: string;
@@ -47,7 +50,7 @@ export interface DiscoveredAlert {
 	severity?: string;
 }
 
-export interface AssertionInfo {
+export interface ExpectationInfo {
 	matcherType: string;
 	alertName: string;
 	passed?: boolean;
@@ -63,10 +66,10 @@ export interface ScenarioMetadata {
 	description: string;
 }
 
-// Saved scenario types
+// Assessment (saved definition) types
 export type ScenarioType = 'standard' | 'explore' | 'collect';
 
-export interface SavedScenario {
+export interface Assessment {
 	id: string;
 	name: string;
 	type: ScenarioType;
@@ -145,7 +148,7 @@ export interface SecretEntryInput {
 // Schedule types
 export interface Schedule {
 	id: string;
-	scenarioId: string;
+	assessmentId: string;
 	cronExpression: string;
 	enabled: boolean;
 	parallelism: number;
@@ -167,7 +170,7 @@ export interface LintedScenario {
 	name: string;
 	executorType: string;
 	executorName: string;
-	assertions: number;
+	expectations: number;
 }
 
 // Run response
@@ -183,9 +186,9 @@ export interface RunListResponse {
 	perPage: number;
 }
 
-// Paginated saved-scenarios response
-export interface ScenarioListResponse {
-	scenarios: SavedScenario[];
+// Paginated assessments response
+export interface AssessmentListResponse {
+	assessments: Assessment[];
 	total: number;
 	page: number;
 	perPage: number;

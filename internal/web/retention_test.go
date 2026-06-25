@@ -86,7 +86,7 @@ func TestSweepAssessments_PurgesAgedSkipsRunningAndRecent(t *testing.T) {
 	recentID, recentJSONL, _ := makeRun(t, ctx, store, dataDir, "completed", 1)
 	runningID, runningJSONL, _ := makeRun(t, ctx, store, dataDir, "running", 40)
 
-	web.SweepAssessments(ctx, store, dataDir, true, 30)
+	web.SweepRuns(ctx, store, dataDir, true, 30)
 
 	// Aged completed run: everything gone.
 	_, err := store.Get(ctx, oldID)
@@ -115,7 +115,7 @@ func TestSweepAssessments_DisabledIsNoOp(t *testing.T) {
 
 	id, jsonl, ndjson := makeRun(t, ctx, store, dataDir, "completed", 40)
 
-	web.SweepAssessments(ctx, store, dataDir, false, 30)
+	web.SweepRuns(ctx, store, dataDir, false, 30)
 
 	_, err := store.Get(ctx, id)
 	assert.NoError(t, err, "disabled sweeper must keep the run")
@@ -168,7 +168,7 @@ func TestSweepAssessments_RemovesTerraformDirs(t *testing.T) {
 	dir1 := seedTerraformDir(t, dataDir, e1)
 	dir2 := seedTerraformDir(t, dataDir, e2)
 
-	web.SweepAssessments(ctx, store, dataDir, true, 30)
+	web.SweepRuns(ctx, store, dataDir, true, 30)
 
 	_, err := store.Get(ctx, id)
 	assert.Error(t, err, "aged run row should be deleted")
@@ -191,7 +191,7 @@ func TestSweepAssessments_SkipsUnsafeExecutionID(t *testing.T) {
 			safeDir := seedTerraformDir(t, dataDir, safe)
 			base := filepath.Join(dataDir, "terraform")
 
-			web.SweepAssessments(ctx, store, dataDir, true, 30)
+			web.SweepRuns(ctx, store, dataDir, true, 30)
 
 			_, err := store.Get(ctx, id)
 			assert.Error(t, err, "aged run row should still be deleted")
@@ -210,7 +210,7 @@ func TestSweepAssessments_MissingTerraformDirIsBestEffort(t *testing.T) {
 	// No terraform dir is seeded for this execution id.
 	id := makeAgedRunWithExecutions(t, ctx, store, dataDir, uuid.NewString())
 
-	web.SweepAssessments(ctx, store, dataDir, true, 30)
+	web.SweepRuns(ctx, store, dataDir, true, 30)
 
 	_, err := store.Get(ctx, id)
 	assert.Error(t, err, "delete should succeed even though the Terraform dir was missing")

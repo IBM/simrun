@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import ScenarioEditor from '$lib/components/ScenarioEditor.svelte';
-	import { saveScenario, runScenario } from '$lib/api/client';
+	import { saveAssessment, runAssessment } from '$lib/api/client';
 	import type { ScenarioType } from '$lib/types';
 
 	const validTypes: ScenarioType[] = ['standard', 'explore', 'collect'];
@@ -15,22 +15,22 @@
 
 	onMount(() => {
 		if (!selected) {
-			goto('/scenarios?new=1', { replaceState: true });
+			goto('/assessments?new=1', { replaceState: true });
 		}
 	});
 
 	async function handleSave(name: string, yaml: string, opts: { run?: boolean }) {
-		const saved = await saveScenario(name, yaml, selected ?? 'standard');
+		const saved = await saveAssessment(name, yaml, selected ?? 'standard');
 		if (opts.run) {
-			const resp = await runScenario(saved.id);
-			await goto(`/assessments/${resp.runId}`);
+			const resp = await runAssessment(saved.id);
+			await goto(`/runs/${resp.runId}`);
 		} else {
-			await goto(`/scenarios/${saved.id}/edit`);
+			await goto(`/assessments/${saved.id}/edit`);
 		}
 	}
 
 	function handleCancel() {
-		goto('/scenarios');
+		goto('/assessments');
 	}
 </script>
 
