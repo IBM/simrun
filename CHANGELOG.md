@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/IBM/simrun/compare/v0.4.1...v0.4.2) (2026-06-25)
+
+
+### Bug Fixes
+
+* **ci:** update cosign command to remove registry referrers mode ([#20](https://github.com/IBM/simrun/issues/20)) ([a07cd69](https://github.com/IBM/simrun/commit/a07cd694e5e3e2536f7235d1b8af7487f7c65c10))
+
 ## [0.4.1](https://github.com/IBM/simrun/compare/v0.4.0...v0.4.1) (2026-06-25)
 
 
