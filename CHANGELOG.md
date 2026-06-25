@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/IBM/simrun/compare/v0.3.0...v0.4.0) (2026-06-25)
+
+
+### Features
+
+* **ci:** add GitHub Actions workflow for Docker image publishing ([#16](https://github.com/IBM/simrun/issues/16)) ([ff3602e](https://github.com/IBM/simrun/commit/ff3602e9c9ad8eba7df1022d68e71df4787a067c))
+
 ## [0.3.0](https://github.com/IBM/simrun/compare/v0.2.1...v0.3.0) (2026-06-23)
 
 
