@@ -91,15 +91,16 @@ func (s *Server) setupRoutes(handlers *Handlers, packHandlers *PackHandlers, sec
 			r.Use(auth.RequireAuth(s.sessionStore))
 		}
 
-		// Scenarios
-		r.Post("/scenarios/lint", handlers.HandleLint)
-		r.Post("/scenarios/run", handlers.HandleRun)
-		r.Get("/scenarios", handlers.HandleListScenarios)
-		r.Post("/scenarios", handlers.HandleSaveScenario)
-		r.Get("/scenarios/{id}", handlers.HandleGetScenario)
-		r.Put("/scenarios/{id}", handlers.HandleUpdateScenario)
-		r.Delete("/scenarios/{id}", handlers.HandleDeleteScenario)
-		r.Get("/scenarios/{scenarioId}/schedule", scheduleHandlers.HandleGetScheduleByScenario)
+		// Assessments (saved definitions; GitHub-Actions "workflow")
+		r.Post("/assessments/lint", handlers.HandleLint)
+		r.Get("/assessments", handlers.HandleListAssessments)
+		r.Post("/assessments", handlers.HandleSaveAssessment)
+		r.Get("/assessments/by-name/{name}", handlers.HandleGetAssessmentByName)
+		r.Get("/assessments/{id}", handlers.HandleGetAssessment)
+		r.Put("/assessments/{id}", handlers.HandleUpdateAssessment)
+		r.Delete("/assessments/{id}", handlers.HandleDeleteAssessment)
+		r.Get("/assessments/{id}/runs", handlers.HandleListAssessmentRuns)
+		r.Get("/assessments/{id}/schedule", scheduleHandlers.HandleGetScheduleByAssessment)
 
 		// Schedules
 		r.Get("/schedules", scheduleHandlers.HandleListSchedules)
@@ -108,7 +109,8 @@ func (s *Server) setupRoutes(handlers *Handlers, packHandlers *PackHandlers, sec
 		r.Put("/schedules/{id}", scheduleHandlers.HandleUpdateSchedule)
 		r.Delete("/schedules/{id}", scheduleHandlers.HandleDeleteSchedule)
 
-		// Runs
+		// Runs (executions; created here, read/deleted by id)
+		r.Post("/runs", handlers.HandleRun)
 		r.Get("/runs", handlers.HandleListRuns)
 		r.Get("/runs/{runId}", handlers.HandleGetRun)
 		r.Delete("/runs/{runId}", handlers.HandleDeleteRun)

@@ -2,7 +2,6 @@ package runner
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,13 +22,13 @@ func TestRunnerWorks(t *testing.T) {
 	testCases := []struct {
 		Name                string
 		AlertExistsSequence []bool
-		HasNoAssertion      bool
+		HasNoMatcher        bool
 		ExpectError         bool
 	}{
 		{Name: "Alert exists from the beginning", AlertExistsSequence: []bool{true}},
 		{Name: "Alert doesn't exist then exists", AlertExistsSequence: []bool{false, true}},
 		{Name: "Alert never exists", AlertExistsSequence: []bool{false}, ExpectError: true},
-		{Name: "No assertion", HasNoAssertion: true},
+		{Name: "No matcher", HasNoMatcher: true},
 	}
 
 	for i := range testCases {
@@ -57,53 +56,40 @@ func TestRunnerWorks(t *testing.T) {
 			mockMatcher.On("AlertName").Return("sample alert")
 			mockMatcher.On("Cleanup", []string{"my-uid"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
 
-			var assertions []matchers.AlertGeneratedMatcher
-			assertions = []matchers.AlertGeneratedMatcher{}
-			if !testCase.HasNoAssertion {
-				assertions = []matchers.AlertGeneratedMatcher{mockMatcher}
+			var matcherList []matchers.AlertGeneratedMatcher
+			if !testCase.HasNoMatcher {
+				matcherList = []matchers.AlertGeneratedMatcher{mockMatcher}
 			}
 
-			runner := Runner{
-				Scenarios: []*Scenario{
-					{
-						Name:       "test-scenario",
-						Detonator:  mockDetonator,
-						Assertions: assertions,
-						Timeout:    50 * time.Millisecond,
-					},
-				},
-				Interval: 1 * time.Millisecond,
-			}
-			results, err := runner.Run()
+			r := Runner{Interval: 1 * time.Millisecond}
+			result := r.Run(&Scenario{
+				Name:      "test-scenario",
+				Detonator: mockDetonator,
+				Matchers:  matcherList,
+				Timeout:   50 * time.Millisecond,
+			})
 			if testCase.ExpectError {
-				assert.NotNil(t, err)
+				assert.False(t, result.Success)
+				assert.NotEmpty(t, result.ErrorMessage)
 			} else {
-				assert.Nil(t, err)
-				assert.Len(t, results, 1)
-				assert.True(t, results[0].Success)
+				assert.True(t, result.Success)
+				assert.Empty(t, result.ErrorMessage)
 			}
 			mockDetonator.AssertNumberOfCalls(t, "Detonate", 1)
 
-			if !testCase.HasNoAssertion {
+			if !testCase.HasNoMatcher {
 				mockMatcher.AssertCalled(t, "Cleanup", []string{"my-uid"}, mock.AnythingOfType("*logrus.Entry"))
 			}
-
 		})
 	}
-
 }
 
-func TestRunnerErrorHandling(t *testing.T) {
-
-	mockDetonator := &detonatorMocks.MockDetonator{}
-	mockDetonator.On("Detonate").Return(map[string]string{"execution_id": "my-uid"}, nil)
-	mockDetonator.On("String").Return("mock-detonator")
-	mockDetonator.On("SimulationId").Return("test-simulation")
-	mockDetonator.On("PackName").Return("")
-	mockDetonator.On("SetStatusCallback", mock.AnythingOfType("func(string)")).Return()
-
+// TestRunnerFailedDetonationRetainsExecutionID verifies that a scenario whose
+// detonation errors still surfaces the execution_id (so a partial detonation
+// stays correlatable) and is reported as a failure.
+func TestRunnerFailedDetonationRetainsExecutionID(t *testing.T) {
 	mockFailingDetonator := &detonatorMocks.MockDetonator{}
-	mockFailingDetonator.On("Detonate").Return(map[string]string{"execution_id": "failed-uid"}, errors.New("foo"))
+	mockFailingDetonator.On("Detonate").Return(map[string]string{"execution_id": "failed-uid"}, assert.AnError)
 	mockFailingDetonator.On("String").Return("mock-failing-detonator")
 	mockFailingDetonator.On("SimulationId").Return("failing-simulation")
 	mockFailingDetonator.On("PackName").Return("")
@@ -113,59 +99,18 @@ func TestRunnerErrorHandling(t *testing.T) {
 	mockMatcher.On("String").Return("sample")
 	mockMatcher.On("MatcherName").Return("sample")
 	mockMatcher.On("AlertName").Return("sample alert")
-	mockMatcher.On("Cleanup", []string{"my-uid"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
-	mockMatcher.On("HasExpectedAlert", []string{"my-uid"}, mock.AnythingOfType("*logrus.Entry")).Return(true, nil)
 
-	runner := Runner{
-		Scenarios: []*Scenario{
-			{
-				Name:       "test-scenario1",
-				Detonator:  mockDetonator,
-				Assertions: []matchers.AlertGeneratedMatcher{mockMatcher},
-				Timeout:    5 * time.Second,
-			},
-			{
-				Name:       "test-scenario2-error",
-				Detonator:  mockFailingDetonator,
-				Assertions: []matchers.AlertGeneratedMatcher{mockMatcher},
-				Timeout:    5 * time.Second,
-			},
-			{
-				Name:       "test-scenario3",
-				Detonator:  mockDetonator,
-				Assertions: []matchers.AlertGeneratedMatcher{mockMatcher},
-				Timeout:    5 * time.Second,
-			},
-		},
-		Interval: 0,
-	}
-	results, err := runner.Run()
-	assert.Error(t, err, "the runner should return an error when a scenario returns an error")
-	assert.Len(t, results, 3) // Should have results for all scenarios
+	r := Runner{Interval: 0}
+	result := r.Run(&Scenario{
+		Name:      "test-scenario-error",
+		Detonator: mockFailingDetonator,
+		Matchers:  []matchers.AlertGeneratedMatcher{mockMatcher},
+		Timeout:   5 * time.Second,
+	})
 
-	// Check that we have both success and failed scenarios
-	var successCount, failedCount int
-	for _, result := range results {
-		if result.Success {
-			successCount++
-		} else {
-			failedCount++
-		}
-	}
-	assert.Equal(t, 2, successCount)
-	assert.Equal(t, 1, failedCount)
-
-	// A failed scenario must still carry its execution_id so the result can be
-	// correlated with the partial detonation (e.g. terraform that did apply).
-	for _, result := range results {
-		if !result.Success {
-			assert.Equal(t, "failed-uid", result.ExecutionId,
-				"failed scenario should retain the execution_id from the detonation output")
-		}
-	}
-
-	// All scenarios should have been detonated, even if one returned an error
-	mockDetonator.AssertNumberOfCalls(t, "Detonate", 2)
+	assert.False(t, result.Success, "a scenario whose detonation errors must fail")
+	assert.Equal(t, "failed-uid", result.ExecutionId,
+		"failed scenario should retain the execution_id from the detonation output")
 	mockFailingDetonator.AssertNumberOfCalls(t, "Detonate", 1)
 }
 
@@ -189,21 +134,15 @@ func TestRunnerWithExecutionUUID(t *testing.T) {
 	mockMatcher.On("AlertName").Return("sample alert")
 	mockMatcher.On("Cleanup", expectedIndicators, mock.AnythingOfType("*logrus.Entry")).Return(nil)
 
-	runner := NewRunner()
-	runner.Scenarios = []*Scenario{
-		{
-			Name:       "test-scenario-with-uuid",
-			Detonator:  mockDetonator,
-			Assertions: []matchers.AlertGeneratedMatcher{mockMatcher},
-			Timeout:    5 * time.Second,
-		},
-	}
-	runner.Interval = 0
-
-	results, err := runner.Run()
-	assert.NoError(t, err)
-	assert.Len(t, results, 1)
-	assert.True(t, results[0].Success)
+	r := NewRunner()
+	r.Interval = 0
+	result := r.Run(&Scenario{
+		Name:      "test-scenario-with-uuid",
+		Detonator: mockDetonator,
+		Matchers:  []matchers.AlertGeneratedMatcher{mockMatcher},
+		Timeout:   5 * time.Second,
+	})
+	assert.True(t, result.Success)
 
 	// Verify both nanoid and UUID were passed to matcher
 	mockMatcher.AssertCalled(t, "HasExpectedAlert", expectedIndicators, mock.AnythingOfType("*logrus.Entry"))
@@ -235,7 +174,8 @@ func TestRunnerExploreModeFailsWhenNoAlertsDiscovered(t *testing.T) {
 	mockDetonator.On("SetStatusCallback", mock.AnythingOfType("func(string)")).Return()
 	mockDetonator.On("SetEnvVars", mock.AnythingOfType("map[string]string")).Return()
 
-	scenario := &Scenario{
+	r := Runner{Interval: 1 * time.Millisecond}
+	result := r.Run(&Scenario{
 		Name:        "explore-no-alerts",
 		Detonator:   mockDetonator,
 		ExploreMode: true,
@@ -244,19 +184,11 @@ func TestRunnerExploreModeFailsWhenNoAlertsDiscovered(t *testing.T) {
 			"SR_KIBANA_URL":      ts.URL,
 			"SR_ELASTIC_API_KEY": "test",
 		},
-	}
+	})
 
-	runner := Runner{
-		Scenarios: []*Scenario{scenario},
-		Interval:  1 * time.Millisecond,
-	}
-
-	results, err := runner.Run()
-	assert.Error(t, err, "explore mode with zero discovered alerts should fail")
-	assert.Len(t, results, 1)
-	assert.False(t, results[0].Success)
-	assert.Contains(t, results[0].Error, "no matching alerts discovered")
-	assert.Empty(t, scenario.DiscoveredAlerts)
+	assert.False(t, result.Success, "explore mode with zero discovered alerts should fail")
+	assert.Contains(t, result.ErrorMessage, "no matching alerts discovered")
+	assert.Empty(t, result.DiscoveredAlerts)
 }
 
 func TestRunnerExploreModeSucceedsWhenAlertsDiscovered(t *testing.T) {
@@ -278,7 +210,8 @@ func TestRunnerExploreModeSucceedsWhenAlertsDiscovered(t *testing.T) {
 	mockDetonator.On("SetStatusCallback", mock.AnythingOfType("func(string)")).Return()
 	mockDetonator.On("SetEnvVars", mock.AnythingOfType("map[string]string")).Return()
 
-	scenario := &Scenario{
+	r := Runner{Interval: 1 * time.Millisecond}
+	result := r.Run(&Scenario{
 		Name:        "explore-with-alerts",
 		Detonator:   mockDetonator,
 		ExploreMode: true,
@@ -287,26 +220,18 @@ func TestRunnerExploreModeSucceedsWhenAlertsDiscovered(t *testing.T) {
 			"SR_KIBANA_URL":      ts.URL,
 			"SR_ELASTIC_API_KEY": "test",
 		},
-	}
+	})
 
-	runner := Runner{
-		Scenarios: []*Scenario{scenario},
-		Interval:  1 * time.Millisecond,
-	}
-
-	results, err := runner.Run()
-	assert.NoError(t, err)
-	assert.Len(t, results, 1)
-	assert.True(t, results[0].Success)
-	assert.GreaterOrEqual(t, len(scenario.DiscoveredAlerts), 1)
-	assert.Equal(t, "alert-1", scenario.DiscoveredAlerts[0].AlertID)
+	assert.True(t, result.Success)
+	assert.GreaterOrEqual(t, len(result.DiscoveredAlerts), 1)
+	assert.Equal(t, "alert-1", result.DiscoveredAlerts[0].AlertID)
 }
 
-// TestRunnerFiresIdentityAndAssertionCallbacks verifies the mid-run hooks that
+// TestRunnerFiresIdentityAndExpectationCallbacks verifies the mid-run hooks that
 // power the live scenario detail view: identity is emitted exactly once after
-// detonation, and the assertions callback fires once per newly-matched
-// assertion, carrying passed=true for matches and nil (pending) for the rest.
-func TestRunnerFiresIdentityAndAssertionCallbacks(t *testing.T) {
+// detonation, and the expectations callback fires once per newly-matched
+// expectation, carrying passed=true for matches and nil (pending) for the rest.
+func TestRunnerFiresIdentityAndExpectationCallbacks(t *testing.T) {
 	mockDetonator := &detonatorMocks.MockDetonator{}
 	mockDetonator.On("Detonate").Return(map[string]string{"execution_id": "exec-123"}, nil)
 	mockDetonator.On("String").Return("mock-detonator")
@@ -315,7 +240,7 @@ func TestRunnerFiresIdentityAndAssertionCallbacks(t *testing.T) {
 	mockDetonator.On("SetStatusCallback", mock.AnythingOfType("func(string)")).Return()
 
 	// matcherA matches on the first poll; matcherB only on the second, so the
-	// assertions callback must fire twice with distinct partial states.
+	// expectations callback must fire twice with distinct partial states.
 	matcherA := &matcherMocks.MockAlertGeneratedMatcher{}
 	matcherA.On("HasExpectedAlert", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(true, nil)
 	matcherA.On("MatcherName").Return("Elastic")
@@ -332,28 +257,26 @@ func TestRunnerFiresIdentityAndAssertionCallbacks(t *testing.T) {
 	matcherB.On("Cleanup", []string{"exec-123"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
 
 	var identities []ScenarioIdentity
-	var assertionSnapshots [][]AssertionResult
+	var snapshots [][]ExpectationResult
 
 	scenario := &Scenario{
-		Name:       "callback-scenario",
-		Detonator:  mockDetonator,
-		Assertions: []matchers.AlertGeneratedMatcher{matcherA, matcherB},
-		Timeout:    5 * time.Second,
+		Name:      "callback-scenario",
+		Detonator: mockDetonator,
+		Matchers:  []matchers.AlertGeneratedMatcher{matcherA, matcherB},
+		Timeout:   5 * time.Second,
 		IdentityCallback: func(_ string, id ScenarioIdentity) {
 			identities = append(identities, id)
 		},
-		AssertionsCallback: func(_ string, results []AssertionResult) {
-			snap := make([]AssertionResult, len(results))
+		ExpectationsCallback: func(_ string, results []ExpectationResult) {
+			snap := make([]ExpectationResult, len(results))
 			copy(snap, results)
-			assertionSnapshots = append(assertionSnapshots, snap)
+			snapshots = append(snapshots, snap)
 		},
 	}
 
-	runner := Runner{Scenarios: []*Scenario{scenario}, Interval: 1 * time.Millisecond}
-	results, err := runner.Run()
-	assert.NoError(t, err)
-	assert.Len(t, results, 1)
-	assert.True(t, results[0].Success)
+	r := Runner{Interval: 1 * time.Millisecond}
+	result := r.Run(scenario)
+	assert.True(t, result.Success)
 
 	// Identity fires exactly once, after detonation, carrying all four fields.
 	assert.Len(t, identities, 1)
@@ -364,21 +287,21 @@ func TestRunnerFiresIdentityAndAssertionCallbacks(t *testing.T) {
 		SimulationID: "sim-456",
 	}, identities[0])
 
-	// One callback per newly-matched assertion: A then B → two snapshots.
-	assert.Len(t, assertionSnapshots, 2)
+	// One callback per newly-matched expectation: A then B → two snapshots.
+	assert.Len(t, snapshots, 2)
 
-	first := assertionSnapshots[0]
-	assertAssertionPassed(t, first, "alert-a", boolPtr(true))
-	assertAssertionPassed(t, first, "alert-b", nil) // still pending
+	first := snapshots[0]
+	assertExpectationPassed(t, first, "alert-a", boolPtr(true))
+	assertExpectationPassed(t, first, "alert-b", nil) // still pending
 
-	last := assertionSnapshots[len(assertionSnapshots)-1]
-	assertAssertionPassed(t, last, "alert-a", boolPtr(true))
-	assertAssertionPassed(t, last, "alert-b", boolPtr(true))
+	last := snapshots[len(snapshots)-1]
+	assertExpectationPassed(t, last, "alert-a", boolPtr(true))
+	assertExpectationPassed(t, last, "alert-b", boolPtr(true))
 }
 
 func boolPtr(b bool) *bool { return &b }
 
-func assertAssertionPassed(t *testing.T, results []AssertionResult, alertName string, want *bool) {
+func assertExpectationPassed(t *testing.T, results []ExpectationResult, alertName string, want *bool) {
 	t.Helper()
 	for _, r := range results {
 		if r.AlertName != alertName {
@@ -393,7 +316,7 @@ func assertAssertionPassed(t *testing.T, results []AssertionResult, alertName st
 		}
 		return
 	}
-	t.Fatalf("assertion %q not found in snapshot", alertName)
+	t.Fatalf("expectation %q not found in snapshot", alertName)
 }
 
 func TestRunnerWithInjector(t *testing.T) {
@@ -410,22 +333,16 @@ func TestRunnerWithInjector(t *testing.T) {
 	mockMatcher.On("AlertName").Return("sample alert")
 	mockMatcher.On("Cleanup", []string{"my-injection-uid"}, mock.AnythingOfType("*logrus.Entry")).Return(nil)
 
-	scenario := Scenario{
-		Name:       "test scenario with injector",
-		Injector:   mockInjector,
-		Assertions: []matchers.AlertGeneratedMatcher{mockMatcher},
-		Timeout:    1 * time.Second,
-	}
-
-	runner := NewRunner()
-	runner.Scenarios = []*Scenario{&scenario}
-	runner.Interval = 10 * time.Millisecond
-
-	results, err := runner.Run()
-	assert.NoError(t, err, "the runner should not return an error when the injection succeeds")
-	assert.Len(t, results, 1)
-	assert.True(t, results[0].Success)
-	assert.Equal(t, "my-injection-uid", results[0].ExecutionId)
+	r := NewRunner()
+	r.Interval = 10 * time.Millisecond
+	result := r.Run(&Scenario{
+		Name:     "test scenario with injector",
+		Injector: mockInjector,
+		Matchers: []matchers.AlertGeneratedMatcher{mockMatcher},
+		Timeout:  1 * time.Second,
+	})
+	assert.True(t, result.Success, "the runner should succeed when the injection succeeds")
+	assert.Equal(t, "my-injection-uid", result.ExecutionId)
 
 	mockInjector.AssertNumberOfCalls(t, "Inject", 1)
 }

@@ -83,7 +83,7 @@ type scenarioYAMLElasticAlert struct {
 
 // buildRuleNameToScenariosMap parses saved scenarios' YAML and returns a map
 // from Elastic Security rule name to the scenarios that cover that rule.
-func buildRuleNameToScenariosMap(scenarios []db.SavedScenario) map[string][]CoverageScenario {
+func buildRuleNameToScenariosMap(scenarios []db.Assessment) map[string][]CoverageScenario {
 	result := make(map[string][]CoverageScenario)
 
 	for _, saved := range scenarios {
@@ -123,12 +123,12 @@ func buildRuleNameToScenariosMap(scenarios []db.SavedScenario) map[string][]Cove
 }
 
 // buildCoverageResponse joins Elastic rules with scenario coverage data and
-// the latest assertion results to produce the full coverage response.
-func buildCoverageResponse(rules []elastic.RuleSummary, scenarioMap map[string][]CoverageScenario, assertionResults []db.LatestAssertionResult) CoverageResponse {
-	// Build assertion lookup by alert name.
-	assertionByName := make(map[string]db.LatestAssertionResult, len(assertionResults))
-	for _, ar := range assertionResults {
-		assertionByName[ar.AlertName] = ar
+// the latest expectation results to produce the full coverage response.
+func buildCoverageResponse(rules []elastic.RuleSummary, scenarioMap map[string][]CoverageScenario, expectationResults []db.LatestExpectationResult) CoverageResponse {
+	// Build expectation lookup by alert name.
+	expectationByName := make(map[string]db.LatestExpectationResult, len(expectationResults))
+	for _, ar := range expectationResults {
+		expectationByName[ar.AlertName] = ar
 	}
 
 	entries := make([]RuleCoverageEntry, 0, len(rules))
@@ -148,8 +148,8 @@ func buildCoverageResponse(rules []elastic.RuleSummary, scenarioMap map[string][
 			Scenarios: scenarios,
 		}
 
-		// Attach the most recent assertion result if available.
-		if ar, ok := assertionByName[rule.Name]; ok {
+		// Attach the most recent expectation result if available.
+		if ar, ok := expectationByName[rule.Name]; ok {
 			entry.LastResult = &CoverageLastResult{
 				Passed:    ar.Passed,
 				RunID:     ar.RunID.String(),

@@ -7,7 +7,7 @@
 	let { run }: { run: Run } = $props();
 </script>
 
-<a href="/assessments/{run.id}" class="block">
+<a href="/runs/{run.id}" class="block">
 	<Card.Root class="transition-colors hover:bg-accent/50 cursor-pointer">
 		<Card.Header class="pb-2">
 			<div class="flex items-center justify-between">

@@ -1,12 +1,12 @@
 import type {
 	Run,
-	SavedScenario,
+	Assessment,
 	Pack,
 	PackManifest,
 	LintResponse,
 	RunResponse,
 	RunListResponse,
-	ScenarioListResponse,
+	AssessmentListResponse,
 	AppConfig,
 	VersionInfo,
 	SecretGroup,
@@ -56,25 +56,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	return res.json();
 }
 
-// Scenarios - lint & run
-export async function lintScenario(yaml: string): Promise<LintResponse> {
-	return request('/scenarios/lint', { method: 'POST', body: JSON.stringify({ yaml }) });
+// Assessments - lint & run
+export async function lintAssessment(yaml: string): Promise<LintResponse> {
+	return request('/assessments/lint', { method: 'POST', body: JSON.stringify({ yaml }) });
 }
 
-export async function runScenario(
-	scenarioId: string,
+export async function runAssessment(
+	assessmentId: string,
 	parallelism?: number,
 	exploreMode?: boolean,
 	cleanupAlerts?: boolean,
 	timeout?: string
 ): Promise<RunResponse> {
-	return request('/scenarios/run', {
+	return request('/runs', {
 		method: 'POST',
-		body: JSON.stringify({ scenarioId, parallelism, exploreMode, cleanupAlerts, timeout })
+		body: JSON.stringify({ assessmentId, parallelism, exploreMode, cleanupAlerts, timeout })
 	});
 }
 
-// Saved scenarios CRUD
+// Assessments CRUD
 export interface ScenarioFilters {
 	name?: string;
 	types?: string[];
@@ -82,43 +82,50 @@ export interface ScenarioFilters {
 	since?: string;
 }
 
-export async function listScenarios(
+export async function listAssessments(
 	page = 1,
 	perPage = 50,
 	filters: ScenarioFilters = {}
-): Promise<ScenarioListResponse> {
+): Promise<AssessmentListResponse> {
 	const qs = new URLSearchParams();
 	qs.set('page', String(page));
 	qs.set('per_page', String(perPage));
 	if (filters.name) qs.set('name', filters.name);
 	if (filters.since) qs.set('since', filters.since);
 	for (const t of filters.types ?? []) qs.append('type', t);
-	return request(`/scenarios?${qs.toString()}`);
+	return request(`/assessments?${qs.toString()}`);
 }
 
-export async function getScenario(id: string): Promise<SavedScenario> {
-	return request(`/scenarios/${id}`);
+export async function getAssessment(id: string): Promise<Assessment> {
+	return request(`/assessments/${id}`);
 }
 
-export async function saveScenario(
+export async function getAssessmentByName(name: string): Promise<Assessment> {
+	return request(`/assessments/by-name/${encodeURIComponent(name)}`);
+}
+
+export async function saveAssessment(
 	name: string,
 	yaml: string,
 	type?: string
-): Promise<SavedScenario> {
-	return request('/scenarios', { method: 'POST', body: JSON.stringify({ name, type, yaml }) });
+): Promise<Assessment> {
+	return request('/assessments', { method: 'POST', body: JSON.stringify({ name, type, yaml }) });
 }
 
-export async function updateScenario(
+export async function updateAssessment(
 	id: string,
 	name: string,
 	yaml: string,
 	type?: string
 ): Promise<void> {
-	return request(`/scenarios/${id}`, { method: 'PUT', body: JSON.stringify({ name, type, yaml }) });
+	return request(`/assessments/${id}`, {
+		method: 'PUT',
+		body: JSON.stringify({ name, type, yaml })
+	});
 }
 
-export async function deleteScenario(id: string): Promise<void> {
-	return request(`/scenarios/${id}`, { method: 'DELETE' });
+export async function deleteAssessment(id: string): Promise<void> {
+	return request(`/assessments/${id}`, { method: 'DELETE' });
 }
 
 // Runs
@@ -127,7 +134,7 @@ export interface RunFilters {
 	types?: string[];
 	// Go-style duration: "24h", "168h", etc. Empty/undefined = no constraint.
 	since?: string;
-	scenarioId?: string;
+	assessmentId?: string;
 }
 
 export async function listRuns(
@@ -140,9 +147,20 @@ export async function listRuns(
 	qs.set('per_page', String(perPage));
 	if (filters.name) qs.set('name', filters.name);
 	if (filters.since) qs.set('since', filters.since);
-	if (filters.scenarioId) qs.set('scenario_id', filters.scenarioId);
+	if (filters.assessmentId) qs.set('assessment_id', filters.assessmentId);
 	for (const t of filters.types ?? []) qs.append('type', t);
 	return request(`/runs?${qs.toString()}`);
+}
+
+export async function listAssessmentRuns(
+	assessmentId: string,
+	page = 1,
+	perPage = 50
+): Promise<RunListResponse> {
+	const qs = new URLSearchParams();
+	qs.set('page', String(page));
+	qs.set('per_page', String(perPage));
+	return request(`/assessments/${assessmentId}/runs?${qs.toString()}`);
 }
 
 export async function getRun(runId: string): Promise<Run> {
@@ -278,9 +296,9 @@ export async function listSchedules(): Promise<Schedule[]> {
 	return request('/schedules');
 }
 
-export async function getScheduleByScenario(scenarioId: string): Promise<Schedule | null> {
+export async function getScheduleByAssessment(assessmentId: string): Promise<Schedule | null> {
 	try {
-		return await request(`/scenarios/${scenarioId}/schedule`);
+		return await request(`/assessments/${assessmentId}/schedule`);
 	} catch {
 		return null;
 	}

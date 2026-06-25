@@ -1,40 +1,39 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page as pageStore } from '$app/stores';
-	import { goto } from '$app/navigation';
-	import { tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import * as Alert from '$lib/components/ui/alert/index.js';
-	import * as Empty from '$lib/components/ui/empty/index.js';
-	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Empty from '$lib/components/ui/empty/index.js';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import ScheduleDialog from '$lib/components/ScheduleDialog.svelte';
-	import NewScenarioDialog from '$lib/components/NewScenarioDialog.svelte';
-	import FileIcon from '@lucide/svelte/icons/file';
+	import { runs } from '$lib/stores/runs';
+	import { listRuns, deleteRun, getConfig, type RunFilters } from '$lib/api/client';
+	import { goto } from '$app/navigation';
+	import {
+		statusVariant,
+		formatDuration,
+		formatUserEmail,
+		formatRelativeTime,
+		formatTime,
+		scenarioTypeVariant
+	} from '$lib/utils/format';
+	import type { Run, ScenarioType, AppConfig } from '$lib/types';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import NewAssessmentDialog from '$lib/components/NewAssessmentDialog.svelte';
+	import RetentionDialog from '$lib/components/RetentionDialog.svelte';
+	import PenLineIcon from '@lucide/svelte/icons/pen-line';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import CalendarIcon from '@lucide/svelte/icons/calendar';
+	import TimerIcon from '@lucide/svelte/icons/timer';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
-	import LoaderIcon from '@lucide/svelte/icons/loader';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { loadScenarioPage } from '$lib/stores/scenarios';
-	import {
-		deleteScenario,
-		listSchedules,
-		updateScenario,
-		type ScenarioFilters
-	} from '$lib/api/client';
-	import { formatUserEmail, scenarioTypeVariant } from '$lib/utils/format';
-	import type { SavedScenario, Schedule, ScenarioType } from '$lib/types';
 
 	const PAGE_SIZES = [25, 50, 100] as const;
 	const SCENARIO_TYPES: ScenarioType[] = ['standard', 'explore', 'collect'];
@@ -50,27 +49,37 @@
 
 	let loading = $state(true);
 	let error = $state('');
+	let newAssessmentOpen = $state(false);
 
-	let pageScenarios = $state<SavedScenario[]>([]);
+	let retentionOpen = $state(false);
+	let retentionConfig = $state<AppConfig>({});
+
+	// Load config lazily when opening retention settings so the common case
+	// (browsing runs) doesn't pay for an extra request.
+	async function openRetention() {
+		try {
+			retentionConfig = await getConfig();
+			retentionOpen = true;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load retention settings';
+		}
+	}
+
+	function handleRetentionSaved(changes: Record<string, unknown>) {
+		retentionConfig = { ...retentionConfig, ...changes };
+	}
+
+	let deleteDialogOpen = $state(false);
+	let deleteTarget = $state<Run | null>(null);
+	let deleting = $state(false);
+
+	let pageRuns = $state<Run[]>([]);
 	let total = $state(0);
 	let page = $state(1);
 	let perPage = $state<number>(50);
 
-	let scheduleMap = $state<Map<string, Schedule>>(new Map());
-
-	let deleteDialogOpen = $state(false);
-	let deleteTarget = $state<SavedScenario | null>(null);
-	let deleting = $state(false);
-
-	let scheduleDialogOpen = $state(false);
-	let scheduleTarget = $state<SavedScenario | null>(null);
-
-	let newDialogOpen = $state(false);
-
-	let renameId = $state<string | null>(null);
-	let renameValue = $state('');
-	let renameSaving = $state(false);
-	let renameInputEl = $state<HTMLInputElement | null>(null);
+	// Running runs visible on the current page — drives the live header pill.
+	const runningCount = $derived(pageRuns.filter((r) => r.status === 'running').length);
 
 	// Filter state — seeded from URL on mount, persisted via goto() on change.
 	let nameFilter = $state('');
@@ -81,8 +90,8 @@
 		nameFilter.length > 0 || typeFilter.length > 0 || sinceFilter !== 'all'
 	);
 
-	function currentFilters(): ScenarioFilters {
-		const f: ScenarioFilters = {};
+	function currentFilters(): RunFilters {
+		const f: RunFilters = {};
 		if (nameFilter) f.name = nameFilter;
 		if (typeFilter.length > 0) f.types = typeFilter;
 		const preset = TIME_PRESETS.find((p) => p.value === sinceFilter);
@@ -98,7 +107,7 @@
 		if (page > 1) qs.set('page', String(page));
 		if (perPage !== 50) qs.set('per_page', String(perPage));
 		const query = qs.toString();
-		const url = query ? `?${query}` : '/scenarios';
+		const url = query ? `?${query}` : '/runs';
 		goto(url, { keepFocus: true, noScroll: true, replaceState: true });
 	}
 
@@ -132,36 +141,61 @@
 		return out;
 	}
 
-	// Monotonic request counter: stale responses are discarded.
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+	function stopPolling() {
+		if (pollTimer) {
+			clearInterval(pollTimer);
+			pollTimer = null;
+		}
+	}
+
+	// Poll only when on page 1 — running runs are always newest.
+	function startPollingIfNeeded() {
+		stopPolling();
+		if (page !== 1) return;
+		const hasActive = pageRuns.some((r) => r.status === 'running');
+		if (hasActive) {
+			pollTimer = setInterval(async () => {
+				try {
+					await load();
+					if (!pageRuns.some((r) => r.status === 'running')) {
+						stopPolling();
+					}
+				} catch {
+					// Silently retry on next interval
+				}
+			}, 5000);
+		}
+	}
+
+	// Monotonic request counter: stale responses (from a previous page or a
+	// poll that fired during navigation) are discarded.
 	let requestSeq = 0;
 
 	async function load() {
 		const seq = ++requestSeq;
-		const data = await loadScenarioPage(page, perPage, currentFilters());
+		const data = await listRuns(page, perPage, currentFilters());
 		if (seq !== requestSeq) return;
-		pageScenarios = data.scenarios;
+		pageRuns = data.runs;
 		total = data.total;
-	}
-
-	async function loadScheduleMap() {
-		const schedules = await listSchedules();
-		const map = new Map<string, Schedule>();
-		for (const schedule of schedules) {
-			map.set(schedule.scenarioId, schedule);
-		}
-		scheduleMap = map;
+		// Keep sidebar/dashboard fresh while on page 1 with no filters applied
+		// (otherwise we'd poison the global store with filtered data).
+		if (page === 1 && !hasActiveFilters) runs.set(data.runs);
 	}
 
 	async function changePage(next: number) {
 		if (next < 1 || next > totalPages || next === page) return;
+		stopPolling();
 		page = next;
 		syncUrl();
 		loading = true;
 		error = '';
 		try {
 			await load();
+			startPollingIfNeeded();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load scenarios';
+			error = e instanceof Error ? e.message : 'Failed to load runs';
 		} finally {
 			loading = false;
 		}
@@ -170,6 +204,7 @@
 	async function changePerPage(value: string) {
 		const next = Number(value);
 		if (!PAGE_SIZES.includes(next as (typeof PAGE_SIZES)[number])) return;
+		stopPolling();
 		perPage = next;
 		page = 1;
 		syncUrl();
@@ -177,8 +212,9 @@
 		error = '';
 		try {
 			await load();
+			startPollingIfNeeded();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load scenarios';
+			error = e instanceof Error ? e.message : 'Failed to load runs';
 		} finally {
 			loading = false;
 		}
@@ -194,14 +230,16 @@
 			nameDebounce = null;
 		}
 		const run = async () => {
+			stopPolling();
 			page = 1;
 			syncUrl();
 			loading = true;
 			error = '';
 			try {
 				await load();
+				startPollingIfNeeded();
 			} catch (e) {
-				error = e instanceof Error ? e.message : 'Failed to load scenarios';
+				error = e instanceof Error ? e.message : 'Failed to load runs';
 			} finally {
 				loading = false;
 			}
@@ -222,28 +260,24 @@
 
 	onMount(async () => {
 		seedFromUrl();
-		if ($pageStore.url.searchParams.get('new') === '1') {
-			newDialogOpen = true;
-			const url = new URL($pageStore.url);
-			url.searchParams.delete('new');
-			goto(url.pathname + url.search, { replaceState: true, noScroll: true, keepFocus: true });
-		}
 		try {
-			await Promise.all([load(), loadScheduleMap()]);
+			await load();
+			startPollingIfNeeded();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load scenarios';
+			error = e instanceof Error ? e.message : 'Failed to load runs';
 		} finally {
 			loading = false;
 		}
 	});
 
 	onDestroy(() => {
+		stopPolling();
 		if (nameDebounce) clearTimeout(nameDebounce);
 	});
 
-	function openDelete(e: Event, scenario: SavedScenario) {
+	function openDelete(e: Event, run: Run) {
 		e.stopPropagation();
-		deleteTarget = scenario;
+		deleteTarget = run;
 		deleteDialogOpen = true;
 	}
 
@@ -252,14 +286,13 @@
 		deleting = true;
 		error = '';
 		try {
-			await deleteScenario(deleteTarget.id);
+			await deleteRun(deleteTarget.id);
 			// If deleting the last row on a page > 1 leaves it empty, step back.
-			if (pageScenarios.length === 1 && page > 1) {
+			if (pageRuns.length === 1 && page > 1) {
 				page--;
-				syncUrl();
 			}
-			await Promise.all([load(), loadScheduleMap()]);
-			toast.success('Scenario deleted');
+			await load();
+			toast.success('Run deleted');
 			deleteDialogOpen = false;
 			deleteTarget = null;
 		} catch (e) {
@@ -268,71 +301,36 @@
 			deleting = false;
 		}
 	}
-
-	function openSchedule(e: Event, scenario: SavedScenario) {
-		e.stopPropagation();
-		scheduleTarget = scenario;
-		scheduleDialogOpen = true;
-	}
-
-	async function startRename(e: Event, scenario: SavedScenario) {
-		e.stopPropagation();
-		renameId = scenario.id;
-		renameValue = scenario.name;
-		await tick();
-		renameInputEl?.focus();
-		renameInputEl?.select();
-	}
-
-	function cancelRename() {
-		renameId = null;
-		renameValue = '';
-	}
-
-	async function commitRename(scenario: SavedScenario) {
-		if (renameSaving) return;
-		const next = renameValue.trim();
-		if (!next || next === scenario.name) {
-			cancelRename();
-			return;
-		}
-		renameSaving = true;
-		error = '';
-		try {
-			await updateScenario(scenario.id, next, scenario.yaml, scenario.type);
-			await load();
-			renameId = null;
-			renameValue = '';
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Rename failed';
-		} finally {
-			renameSaving = false;
-		}
-	}
-
-	function handleRenameKeydown(e: KeyboardEvent, scenario: SavedScenario) {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			commitRename(scenario);
-		} else if (e.key === 'Escape') {
-			e.preventDefault();
-			cancelRename();
-		}
-	}
 </script>
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold">Scenarios</h1>
-		<Button onclick={() => (newDialogOpen = true)}>
-			<PlusIcon data-icon="inline-start" />
-			New Scenario
-		</Button>
+		<div class="flex items-center gap-3">
+			<h1 class="text-2xl font-bold">Runs</h1>
+			{#if runningCount > 0}
+				<span
+					class="inline-flex items-center gap-1.5 rounded-full border border-status-processing/35 bg-status-processing/10 px-2.5 py-0.5 font-mono text-xs text-status-processing"
+				>
+					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"></span>
+					{runningCount} running
+				</span>
+			{/if}
+		</div>
+		<div class="flex items-center gap-2">
+			<Button variant="outline" onclick={openRetention}>
+				<TimerIcon data-icon="inline-start" />
+				Retention
+			</Button>
+			<Button onclick={() => (newAssessmentOpen = true)}>
+				<PlusIcon data-icon="inline-start" />
+				New Assessment
+			</Button>
+		</div>
 	</div>
 
 	<div class="flex flex-wrap items-end gap-3">
 		<div class="flex flex-col gap-1.5">
-			<label for="name-filter" class="text-muted-foreground text-xs font-medium">Name</label>
+			<label for="name-filter" class="text-muted-foreground text-xs font-medium">Assessment</label>
 			<Input
 				id="name-filter"
 				type="text"
@@ -359,7 +357,7 @@
 		</div>
 
 		<div class="flex flex-col gap-1.5">
-			<label for="since-filter" class="text-muted-foreground text-xs font-medium">Updated</label>
+			<label for="since-filter" class="text-muted-foreground text-xs font-medium">Executed</label>
 			<Select.Root
 				type="single"
 				value={sinceFilter}
@@ -395,23 +393,23 @@
 
 	{#if loading}
 		<div class="space-y-3">
-			{#each Array(4) as _}
+			{#each Array(5) as _, i}
 				<Skeleton class="h-12 w-full" />
 			{/each}
 		</div>
-	{:else if pageScenarios.length === 0}
+	{:else if pageRuns.length === 0}
 		<Empty.Root>
 			<Empty.Header>
 				<Empty.Media variant="icon">
-					<FileIcon />
+					<PenLineIcon />
 				</Empty.Media>
 				<Empty.Title>
-					{hasActiveFilters ? 'No matching scenarios' : 'No saved scenarios'}
+					{hasActiveFilters ? 'No matching runs' : 'No runs yet'}
 				</Empty.Title>
 				<Empty.Description>
 					{hasActiveFilters
 						? 'Try clearing or adjusting your filters.'
-						: 'Save scenario YAML files here for quick access.'}
+						: 'Run an assessment to see run history here.'}
 				</Empty.Description>
 			</Empty.Header>
 			<Empty.Content>
@@ -421,7 +419,10 @@
 						Clear filters
 					</Button>
 				{:else}
-					<Button onclick={() => (newDialogOpen = true)}>New Scenario</Button>
+					<Button onclick={() => (newAssessmentOpen = true)}>
+						<PlusIcon data-icon="inline-start" />
+						New Assessment
+					</Button>
 				{/if}
 			</Empty.Content>
 		</Empty.Root>
@@ -430,118 +431,103 @@
 			<Table.Root>
 				<Table.Header class="bg-muted">
 					<Table.Row>
-						<Table.Head>Name</Table.Head>
+						<Table.Head>ID</Table.Head>
+						<Table.Head>Status</Table.Head>
+						<Table.Head>Assessment</Table.Head>
 						<Table.Head>Type</Table.Head>
-						<Table.Head>Schedule</Table.Head>
-						<Table.Head>Created</Table.Head>
-						<Table.Head>Updated</Table.Head>
-						<Table.Head class="w-20"></Table.Head>
+						<Table.Head class="w-[200px]">Results</Table.Head>
+						<Table.Head>Started By</Table.Head>
+						<Table.Head>Started</Table.Head>
+						<Table.Head>Duration</Table.Head>
+						<Table.Head class="w-10"></Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each pageScenarios as scenario}
+					{#each pageRuns as run (run.id)}
+						{@const pending = Math.max(0, run.total - run.succeeded - run.failed)}
 						<Table.Row
-							class="group cursor-pointer hover:bg-accent/50 transition-colors"
-							onclick={() => {
-								if (renameId !== scenario.id) goto(`/scenarios/${scenario.id}`);
-							}}
+							class="cursor-pointer hover:bg-accent/50 transition-colors"
+							onclick={() => goto(`/runs/${run.id}`)}
 						>
-							<Table.Cell class="font-medium">
-								{#if renameId === scenario.id}
-									<div
-										class="flex items-center gap-2"
-										onclick={(e) => e.stopPropagation()}
-										role="presentation"
-									>
-										<Input
-											bind:ref={renameInputEl}
-											bind:value={renameValue}
-											onkeydown={(e: KeyboardEvent) => handleRenameKeydown(e, scenario)}
-											onblur={() => commitRename(scenario)}
-											disabled={renameSaving}
-											class="h-7 max-w-xs"
-										/>
-										{#if renameSaving}
-											<LoaderIcon class="h-3 w-3 animate-spin text-muted-foreground" />
-										{/if}
-									</div>
-								{:else}
-									<div class="flex items-center gap-1.5">
-										<span class="truncate">{scenario.name}</span>
-										<button
-											type="button"
-											title="Rename"
-											aria-label="Rename scenario"
-											class="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-											onclick={(e) => startRename(e, scenario)}
-										>
-											<PencilIcon class="h-3.5 w-3.5" />
-										</button>
-									</div>
-								{/if}
+							<Table.Cell class="font-mono text-xs">
+								{run.id.slice(0, 8)}
 							</Table.Cell>
 							<Table.Cell>
-								<Badge variant={scenarioTypeVariant(scenario.type)}>
-									{scenario.type || 'standard'}
+								<Badge variant={statusVariant(run.status)} class="gap-1.5">
+									{#if run.status === 'running'}
+										<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-processing"
+										></span>
+									{/if}
+									{run.status}
 								</Badge>
 							</Table.Cell>
+							<Table.Cell class="max-w-[200px] truncate">
+								{run.assessmentName || '--'}
+							</Table.Cell>
 							<Table.Cell>
-								{#if scheduleMap.has(scenario.id)}
-									{@const schedule = scheduleMap.get(scenario.id)}
-									<Badge variant={schedule?.enabled ? 'default' : 'secondary'}>
-										{schedule?.enabled ? 'Scheduled' : 'Disabled'}
-									</Badge>
+								{#if run.assessmentType}
+									<Badge variant={scenarioTypeVariant(run.assessmentType)}>{run.assessmentType}</Badge>
 								{:else}
-									<span class="text-sm text-muted-foreground">None</span>
+									<span class="text-muted-foreground text-xs">--</span>
 								{/if}
 							</Table.Cell>
 							<Table.Cell>
-								<div class="flex flex-col">
-									<span>{new Date(scenario.createdAt).toLocaleDateString()}</span>
-									{#if scenario.createdBy && scenario.createdBy !== 'anonymous'}
-										<Tooltip.Root>
-											<Tooltip.Trigger class="text-xs text-muted-foreground cursor-default w-fit">
-												by {formatUserEmail(scenario.createdBy)}
-											</Tooltip.Trigger>
-											<Tooltip.Content>{scenario.createdBy}</Tooltip.Content>
-										</Tooltip.Root>
-									{/if}
-								</div>
+								{#if run.total > 0}
+									<div class="flex items-center gap-2.5">
+										<div class="flex h-[7px] w-24 overflow-hidden rounded-full bg-muted">
+											<div
+												class="h-full bg-status-success"
+												style="width: {(run.succeeded / run.total) * 100}%"
+											></div>
+											<div
+												class="h-full bg-status-error"
+												style="width: {(run.failed / run.total) * 100}%"
+											></div>
+											{#if pending > 0}
+												<div
+													class="h-full bg-status-processing/40"
+													style="width: {(pending / run.total) * 100}%"
+												></div>
+											{/if}
+										</div>
+										<span class="font-mono text-xs whitespace-nowrap">
+											<span class="font-medium text-status-success">{run.succeeded}</span><span
+												class="text-muted-foreground">/{run.total}</span
+											>
+										</span>
+									</div>
+								{:else}
+									<span class="text-muted-foreground text-xs">--</span>
+								{/if}
 							</Table.Cell>
 							<Table.Cell>
-								<div class="flex flex-col">
-									<span>{new Date(scenario.updatedAt).toLocaleDateString()}</span>
-									{#if scenario.updatedBy && scenario.updatedBy !== 'anonymous'}
-										<Tooltip.Root>
-											<Tooltip.Trigger class="text-xs text-muted-foreground cursor-default w-fit">
-												by {formatUserEmail(scenario.updatedBy)}
-											</Tooltip.Trigger>
-											<Tooltip.Content>{scenario.updatedBy}</Tooltip.Content>
-										</Tooltip.Root>
-									{/if}
-								</div>
+								<Tooltip.Root>
+									<Tooltip.Trigger class="text-muted-foreground text-xs cursor-default">
+										{formatUserEmail(run.createdBy)}
+									</Tooltip.Trigger>
+									<Tooltip.Content>{run.createdBy}</Tooltip.Content>
+								</Tooltip.Root>
 							</Table.Cell>
 							<Table.Cell>
-								<div class="flex justify-end gap-1">
-									<Button
-										variant="ghost"
-										size="icon"
-										title="Schedule"
-										class="h-8 w-8 text-muted-foreground hover:text-foreground"
-										onclick={(e: Event) => openSchedule(e, scenario)}
-									>
-										<CalendarIcon class="h-4 w-4" />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon"
-										title="Delete"
-										class="h-8 w-8 text-muted-foreground hover:text-destructive"
-										onclick={(e: Event) => openDelete(e, scenario)}
-									>
-										<TrashIcon class="h-4 w-4" />
-									</Button>
-								</div>
+								<Tooltip.Root>
+									<Tooltip.Trigger class="cursor-default whitespace-nowrap">
+										{formatRelativeTime(run.startTime)}
+									</Tooltip.Trigger>
+									<Tooltip.Content>{formatTime(run.startTime)}</Tooltip.Content>
+								</Tooltip.Root>
+							</Table.Cell>
+							<Table.Cell class="font-mono text-xs tabular-nums"
+								>{formatDuration(run.startTime, run.endTime)}</Table.Cell
+							>
+							<Table.Cell>
+								<Button
+									variant="ghost"
+									size="icon"
+									class="h-8 w-8 text-muted-foreground hover:text-destructive"
+									onclick={(e: Event) => openDelete(e, run)}
+								>
+									<TrashIcon class="h-4 w-4" />
+								</Button>
 							</Table.Cell>
 						</Table.Row>
 					{/each}
@@ -612,13 +598,22 @@
 	{/if}
 </div>
 
+<NewAssessmentDialog bind:open={newAssessmentOpen} />
+
+<RetentionDialog
+	bind:open={retentionOpen}
+	config={retentionConfig}
+	onsaved={handleRetentionSaved}
+/>
+
 <!-- Delete Confirmation Dialog -->
 <Dialog.Root bind:open={deleteDialogOpen}>
 	<Dialog.Content>
 		<Dialog.Header>
-			<Dialog.Title>Delete Scenario</Dialog.Title>
+			<Dialog.Title>Delete Run</Dialog.Title>
 			<Dialog.Description>
-				Are you sure you want to delete "{deleteTarget?.name}"? This action cannot be undone.
+				Are you sure you want to delete run "{deleteTarget?.id.slice(0, 8)}"? This will permanently
+				remove the run, all scenario results, and log files. This action cannot be undone.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex justify-end gap-2 pt-4">
@@ -629,19 +624,3 @@
 		</div>
 	</Dialog.Content>
 </Dialog.Root>
-
-<!-- Schedule Dialog -->
-{#if scheduleTarget}
-	<ScheduleDialog
-		bind:open={scheduleDialogOpen}
-		scenario={scheduleTarget}
-		onclose={() => {
-			scheduleDialogOpen = false;
-			scheduleTarget = null;
-		}}
-		onsuccess={loadScheduleMap}
-	/>
-{/if}
-
-<!-- New Scenario type picker -->
-<NewScenarioDialog bind:open={newDialogOpen} />

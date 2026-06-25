@@ -17,27 +17,54 @@ type Scenario struct {
 	Injector       injectors.Injector
 	Collector      collectors.Collector
 	Timeout        time.Duration
-	Assertions     []matchers.AlertGeneratedMatcher
+	Matchers       []matchers.AlertGeneratedMatcher
 	Indicators     *Indicators
 	Metadata       *Metadata
 	StatusCallback func(scenarioName, phase string)
 	// IdentityCallback fires once after detonation, carrying executor identity.
 	IdentityCallback func(scenarioName string, identity ScenarioIdentity)
-	// AssertionsCallback fires when an assertion newly matches, carrying the
-	// current pass/pending state of every assertion.
-	AssertionsCallback func(scenarioName string, results []AssertionResult)
-	ExploreMode        bool // when true, discover all matching alerts instead of asserting specific rules
-	CleanupAlerts      bool // when true in explore mode, close discovered alerts after run
+	// ExpectationsCallback fires when an expectation newly matches, carrying the
+	// current pass/pending state of every expectation.
+	ExpectationsCallback func(scenarioName string, results []ExpectationResult)
+	ExploreMode          bool // when true, discover all matching alerts instead of matching specific rules
+	CleanupAlerts        bool // when true in explore mode, close discovered alerts after run
+}
 
-	// Populated by runner after assertion matching completes
-	FailedAssertions []matchers.AlertGeneratedMatcher
+// ScenarioResult is the single in-memory outcome of executing one scenario,
+// returned by the runner and consumed by the parallel executor and the web
+// layer. The runner populates everything except the wall-clock timing
+// (TimeExecuted, DurationSeconds), which the executor records around the call.
+// The persistence row (db.ScenarioResult) is a separate column-shaped DTO.
+type ScenarioResult struct {
+	Name                    string                           `json:"name"`
+	Success                 bool                             `json:"isSuccess"`
+	ErrorMessage            string                           `json:"errorMessage"`
+	DurationSeconds         float64                          `json:"durationSeconds"`
+	MatchingDurationSeconds float64                          `json:"matchingDurationSeconds"`
+	TimeExecuted            time.Time                        `json:"timeExecuted"`
+	ExecutorName            string                           `json:"executorName"`
+	ExecutorType            string                           `json:"executorType"`
+	ExecutionId             string                           `json:"executionId"`
+	SimulationID            string                           `json:"simulationId,omitempty"`
+	Matchers                []matchers.AlertGeneratedMatcher `json:"expectations,omitempty"`
+	UnmetExpectations       []matchers.AlertGeneratedMatcher `json:"-"`
+	Indicators              *Indicators                      `json:"indicators,omitempty"`
+	Metadata                *Metadata                        `json:"metadata,omitempty"`
+	CollectedLogPath        string                           `json:"collectedLogPath,omitempty"`
+	CollectedDocCount       int                              `json:"collectedDocCount,omitempty"`
+	DiscoveredAlerts        []DiscoveredAlert                `json:"discoveredAlerts,omitempty"`
+	ExploreMode             bool                             `json:"exploreMode,omitempty"`
+}
 
-	// Populated by runner after explore mode completes
-	DiscoveredAlerts []DiscoveredAlert
-
-	// Populated by runner after collection completes
-	CollectedLogPath  string
-	CollectedDocCount int
+// RunResult is the aggregate outcome of a whole run (one assessment execution).
+type RunResult struct {
+	RunId            string           `json:"runId"`
+	StartTime        time.Time        `json:"startTime"`
+	EndTime          time.Time        `json:"endTime"`
+	TotalScenarios   int              `json:"totalScenarios"`
+	SuccessScenarios int              `json:"successScenarios"`
+	FailedScenarios  int              `json:"failedScenarios"`
+	Scenarios        []ScenarioResult `json:"scenarios"`
 }
 
 // ScenarioIdentity is the executor identity surfaced mid-run, after detonation.
@@ -48,9 +75,9 @@ type ScenarioIdentity struct {
 	SimulationID string
 }
 
-// AssertionResult is the mid-run state of a single assertion. Passed is nil
-// while the assertion is still pending (not yet matched).
-type AssertionResult struct {
+// ExpectationResult is the mid-run state of a single expectation. Passed is nil
+// while the expectation is still pending (not yet matched).
+type ExpectationResult struct {
 	MatcherType string
 	AlertName   string
 	Passed      *bool

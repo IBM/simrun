@@ -10,12 +10,12 @@
 
 <Card.Root class="animate-fade-up stagger-1">
 	<Card.Header class="pb-3">
-		<Card.Title class="text-base">Recent Assessments</Card.Title>
+		<Card.Title class="text-base">Recent Runs</Card.Title>
 	</Card.Header>
 	<Card.Content class="pt-0">
 		{#if runs.length === 0}
 			<p class="text-sm text-muted-foreground py-4 text-center">
-				No assessments yet. Start an assessment from the Scenarios page.
+				No runs yet. Start a run from the Assessments page.
 			</p>
 		{:else}
 			<div class="space-y-2">
@@ -23,7 +23,7 @@
 					<button
 						type="button"
 						class="w-full text-left rounded-lg ring-1 ring-foreground/10 bg-card/50 backdrop-blur-sm px-3 py-2 hover:bg-accent/50 transition-colors cursor-pointer"
-						onclick={() => goto(`/assessments/${run.id}`)}
+						onclick={() => goto(`/runs/${run.id}`)}
 					>
 						<div class="flex items-center justify-between gap-2">
 							<div class="flex items-center gap-2 min-w-0">
@@ -36,9 +36,9 @@
 								{formatDuration(run.startTime, run.endTime)}
 							</span>
 						</div>
-						{#if run.scenarioName}
+						{#if run.assessmentName}
 							<div class="text-xs text-muted-foreground mt-0.5 truncate">
-								{run.scenarioName}
+								{run.assessmentName}
 							</div>
 						{/if}
 					</button>

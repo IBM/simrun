@@ -9,7 +9,7 @@ import (
 
 func TestElasticAlertMatchesExecution(t *testing.T) {
 	// Test the alertMatchesExecution method
-	assertion := &ElasticSecurityAlertGeneratedAssertion{
+	assertion := &ElasticSecurityAlertMatcher{
 		AlertFilter: ElasticSecurityAlertFilter{
 			RuleName: "Test Rule",
 		},
@@ -56,7 +56,7 @@ func TestAlertMatchesIndicatorsCaseInsensitive(t *testing.T) {
 
 func TestBuildElasticAlertQuery(t *testing.T) {
 	// Test the query building method
-	assertion := &ElasticSecurityAlertGeneratedAssertion{
+	assertion := &ElasticSecurityAlertMatcher{
 		AlertFilter: ElasticSecurityAlertFilter{
 			RuleName: "Test Rule",
 			Severity: "high",
@@ -70,8 +70,8 @@ func TestBuildElasticAlertQuery(t *testing.T) {
 	assert.Contains(t, query, "kibana.alert.severity")
 }
 
-func TestElasticAlertGeneratedAssertionString(t *testing.T) {
-	assertion := &ElasticSecurityAlertGeneratedAssertion{
+func TestElasticSecurityAlertMatcherString(t *testing.T) {
+	assertion := &ElasticSecurityAlertMatcher{
 		AlertFilter: ElasticSecurityAlertFilter{
 			RuleName: "My Test Rule",
 		},

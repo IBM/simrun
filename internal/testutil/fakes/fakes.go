@@ -20,6 +20,7 @@ import (
 	"github.com/IBM/simrun/internal/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Stores bundles every fake store. Use New() to construct a wired-up bundle.
@@ -38,7 +39,7 @@ type Stores struct {
 func New() *Stores {
 	return &Stores{
 		Run:       &RunStore{runs: map[uuid.UUID]*db.Run{}, results: map[uuid.UUID]*db.ScenarioResult{}},
-		Scenario:  &ScenarioStore{scenarios: map[uuid.UUID]*db.SavedScenario{}},
+		Scenario:  &ScenarioStore{scenarios: map[uuid.UUID]*db.Assessment{}},
 		Pack:      &PackStore{packs: map[string]*db.Pack{}},
 		Secret:    &SecretStore{secrets: map[uuid.UUID]*db.SecretGroup{}},
 		Connector: &ConnectorStore{connectors: map[uuid.UUID]*db.Connector{}},
@@ -96,20 +97,20 @@ func (s *RunStore) List(_ context.Context, filters db.ListRunsFilters, limit, of
 
 func matchesRunFilters(r *db.Run, f db.ListRunsFilters) bool {
 	if f.Name != "" {
-		if r.ScenarioName == nil || !strings.Contains(strings.ToLower(*r.ScenarioName), strings.ToLower(f.Name)) {
+		if r.AssessmentName == nil || !strings.Contains(strings.ToLower(*r.AssessmentName), strings.ToLower(f.Name)) {
 			return false
 		}
 	}
 	if len(f.Types) > 0 {
-		if r.ScenarioType == nil || !slices.Contains(f.Types, *r.ScenarioType) {
+		if r.AssessmentType == nil || !slices.Contains(f.Types, *r.AssessmentType) {
 			return false
 		}
 	}
 	if f.Since != nil && r.CreatedAt.Before(*f.Since) {
 		return false
 	}
-	if f.ScenarioID != nil {
-		if r.ScenarioID == nil || *r.ScenarioID != *f.ScenarioID {
+	if f.AssessmentID != nil {
+		if r.AssessmentID == nil || *r.AssessmentID != *f.AssessmentID {
 			return false
 		}
 	}
@@ -242,14 +243,14 @@ func (s *RunStore) UpdateScenarioIdentity(_ context.Context, id uuid.UUID, execu
 	return nil
 }
 
-func (s *RunStore) UpdateScenarioAssertions(_ context.Context, id uuid.UUID, assertionsJSON []byte) error {
+func (s *RunStore) UpdateScenarioExpectations(_ context.Context, id uuid.UUID, expectationsJSON []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	r, ok := s.results[id]
 	if !ok {
 		return pgx.ErrNoRows
 	}
-	r.Assertions = assertionsJSON
+	r.Expectations = expectationsJSON
 	return nil
 }
 
@@ -277,8 +278,8 @@ func (s *RunStore) IncrementRunCounters(_ context.Context, id uuid.UUID, success
 	return nil
 }
 
-func (s *RunStore) GetLatestAssertionResults(_ context.Context) ([]db.LatestAssertionResult, error) {
-	return []db.LatestAssertionResult{}, nil
+func (s *RunStore) GetLatestExpectationResults(_ context.Context) ([]db.LatestExpectationResult, error) {
+	return []db.LatestExpectationResult{}, nil
 }
 
 // All returns a snapshot of all runs (test-only convenience).
@@ -296,16 +297,23 @@ func (s *RunStore) All() []db.Run {
 
 type ScenarioStore struct {
 	mu        sync.Mutex
-	scenarios map[uuid.UUID]*db.SavedScenario
+	scenarios map[uuid.UUID]*db.Assessment
 }
 
-var _ db.ScenarioStore = (*ScenarioStore)(nil)
+var _ db.AssessmentStore = (*ScenarioStore)(nil)
 
-func (s *ScenarioStore) Save(_ context.Context, name, scenarioType, yaml, createdBy string) (*db.SavedScenario, error) {
+func (s *ScenarioStore) Save(_ context.Context, name, scenarioType, yaml, createdBy string) (*db.Assessment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Mirror the production UNIQUE(name) constraint so handlers can map the
+	// SQLSTATE 23505 violation to a 409.
+	for _, sc := range s.scenarios {
+		if sc.Name == name {
+			return nil, &pgconn.PgError{Code: "23505", ConstraintName: "assessments_name_key"}
+		}
+	}
 	now := time.Now()
-	sc := &db.SavedScenario{
+	sc := &db.Assessment{
 		ID:        uuid.New(),
 		Name:      name,
 		Type:      scenarioType,
@@ -320,7 +328,7 @@ func (s *ScenarioStore) Save(_ context.Context, name, scenarioType, yaml, create
 	return &cp, nil
 }
 
-func (s *ScenarioStore) Get(_ context.Context, id uuid.UUID) (*db.SavedScenario, error) {
+func (s *ScenarioStore) Get(_ context.Context, id uuid.UUID) (*db.Assessment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sc, ok := s.scenarios[id]
@@ -331,10 +339,22 @@ func (s *ScenarioStore) Get(_ context.Context, id uuid.UUID) (*db.SavedScenario,
 	return &cp, nil
 }
 
-func (s *ScenarioStore) List(_ context.Context, filters db.ListScenariosFilters, limit, offset int) (db.ScenarioPage, error) {
+func (s *ScenarioStore) GetByName(_ context.Context, name string) (*db.Assessment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	all := make([]db.SavedScenario, 0, len(s.scenarios))
+	for _, sc := range s.scenarios {
+		if sc.Name == name {
+			cp := *sc
+			return &cp, nil
+		}
+	}
+	return nil, pgx.ErrNoRows
+}
+
+func (s *ScenarioStore) List(_ context.Context, filters db.ListAssessmentsFilters, limit, offset int) (db.AssessmentPage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	all := make([]db.Assessment, 0, len(s.scenarios))
 	for _, sc := range s.scenarios {
 		if !scenarioMatchesFilters(*sc, filters) {
 			continue
@@ -344,17 +364,17 @@ func (s *ScenarioStore) List(_ context.Context, filters db.ListScenariosFilters,
 	sort.Slice(all, func(i, j int) bool { return all[i].UpdatedAt.After(all[j].UpdatedAt) })
 	total := len(all)
 	if offset >= total {
-		return db.ScenarioPage{Scenarios: []db.SavedScenario{}, Total: total}, nil
+		return db.AssessmentPage{Assessments: []db.Assessment{}, Total: total}, nil
 	}
 	end := min(offset+limit, total)
-	page := append([]db.SavedScenario(nil), all[offset:end]...)
-	return db.ScenarioPage{Scenarios: page, Total: total}, nil
+	page := append([]db.Assessment(nil), all[offset:end]...)
+	return db.AssessmentPage{Assessments: page, Total: total}, nil
 }
 
-func (s *ScenarioStore) ListAll(_ context.Context) ([]db.SavedScenario, error) {
+func (s *ScenarioStore) ListAll(_ context.Context) ([]db.Assessment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]db.SavedScenario, 0, len(s.scenarios))
+	out := make([]db.Assessment, 0, len(s.scenarios))
 	for _, sc := range s.scenarios {
 		out = append(out, *sc)
 	}
@@ -362,7 +382,7 @@ func (s *ScenarioStore) ListAll(_ context.Context) ([]db.SavedScenario, error) {
 	return out, nil
 }
 
-func scenarioMatchesFilters(sc db.SavedScenario, f db.ListScenariosFilters) bool {
+func scenarioMatchesFilters(sc db.Assessment, f db.ListAssessmentsFilters) bool {
 	if f.Name != "" && !strings.Contains(strings.ToLower(sc.Name), strings.ToLower(f.Name)) {
 		return false
 	}
@@ -740,28 +760,28 @@ func (s *ConfigStore) GetAppConfig(_ context.Context) (config.AppConfig, error) 
 			out.SSHLoggingEnabled = v
 		}
 	}
-	if raw, ok := s.data["assessment_log_retention_enabled"]; ok {
+	if raw, ok := s.data["run_log_retention_enabled"]; ok {
 		var v bool
 		if err := json.Unmarshal(raw, &v); err == nil {
-			out.AssessmentLogRetentionEnabled = v
+			out.RunLogRetentionEnabled = v
 		}
 	}
-	if raw, ok := s.data["assessment_log_retention_days"]; ok {
+	if raw, ok := s.data["run_log_retention_days"]; ok {
 		var v int
 		if err := json.Unmarshal(raw, &v); err == nil && v > 0 {
-			out.AssessmentLogRetentionDays = v
+			out.RunLogRetentionDays = v
 		}
 	}
-	if raw, ok := s.data["assessment_retention_enabled"]; ok {
+	if raw, ok := s.data["run_retention_enabled"]; ok {
 		var v bool
 		if err := json.Unmarshal(raw, &v); err == nil {
-			out.AssessmentRetentionEnabled = v
+			out.RunRetentionEnabled = v
 		}
 	}
-	if raw, ok := s.data["assessment_retention_days"]; ok {
+	if raw, ok := s.data["run_retention_days"]; ok {
 		var v int
 		if err := json.Unmarshal(raw, &v); err == nil && v > 0 {
-			out.AssessmentRetentionDays = v
+			out.RunRetentionDays = v
 		}
 	}
 	return out, nil
@@ -771,14 +791,14 @@ func (s *ConfigStore) UpdateAppConfig(_ context.Context, c config.AppConfig) err
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, v := range map[string]any{
-		"parallelism":                      c.Parallelism,
-		"terraform_version":                c.TerraformVersion,
-		"pack_logs_enabled":                c.PackLogsEnabled,
-		"ssh_logging_enabled":              c.SSHLoggingEnabled,
-		"assessment_log_retention_enabled": c.AssessmentLogRetentionEnabled,
-		"assessment_log_retention_days":    c.AssessmentLogRetentionDays,
-		"assessment_retention_enabled":     c.AssessmentRetentionEnabled,
-		"assessment_retention_days":        c.AssessmentRetentionDays,
+		"parallelism":               c.Parallelism,
+		"terraform_version":         c.TerraformVersion,
+		"pack_logs_enabled":         c.PackLogsEnabled,
+		"ssh_logging_enabled":       c.SSHLoggingEnabled,
+		"run_log_retention_enabled": c.RunLogRetentionEnabled,
+		"run_log_retention_days":    c.RunLogRetentionDays,
+		"run_retention_enabled":     c.RunRetentionEnabled,
+		"run_retention_days":        c.RunRetentionDays,
 	} {
 		raw, err := json.Marshal(v)
 		if err != nil {

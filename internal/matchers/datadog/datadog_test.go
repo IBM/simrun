@@ -151,7 +151,7 @@ func TestDatadog(t *testing.T) {
 			mockDatadog.On("SearchSignals", expectedQuery).Return(union(signalsMatchingOnlyRuleAndSeverity, signalsMatchingBoth), nil)
 			mockDatadog.On("CloseSignal", mock.AnythingOfType("string")).Return(nil)
 
-			matcher := DatadogAlertGeneratedAssertion{
+			matcher := DatadogAlertMatcher{
 				SignalsAPI:  mockDatadog,
 				AlertFilter: alertFilter,
 			}
@@ -199,7 +199,7 @@ func TestSignalMatchesExecutionCaseInsensitive(t *testing.T) {
 		"resource_id": "/SUBSCRIPTIONS/ABC-123/RESOURCEGROUPS/RG",
 	}}
 
-	matcher := DatadogAlertGeneratedAssertion{}
+	matcher := DatadogAlertMatcher{}
 
 	// Indicator is lower-case, signal value is upper-case.
 	assert.True(t, matcher.signalMatchesExecution(*signal, []string{"abc-123"}, testLogger))

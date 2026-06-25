@@ -124,7 +124,7 @@
 </script>
 
 <Sheet.Root bind:open>
-	<Sheet.Content side="right" class="sm:max-w-lg w-full p-0">
+	<Sheet.Content side="right" class="data-[side=right]:sm:max-w-3xl w-full p-0">
 		{#if manifest}
 			<div class="flex flex-col h-full">
 				{#if selectedDetail?.kind === 'simulation'}
@@ -189,7 +189,7 @@
 						</div>
 					</div>
 
-					<ScrollArea class="flex-1">
+					<ScrollArea class="flex-1 min-h-0">
 						<div class="px-6 py-5 space-y-6">
 							<!-- Description -->
 							<div>
@@ -198,7 +198,7 @@
 								>
 									Description
 								</h4>
-								<div class="rounded-md border border-border p-3 max-h-32 overflow-y-auto">
+								<div class="rounded-md border border-border p-3 max-h-64 overflow-y-auto">
 									<p class="text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
 										{selectedSimulation.description || 'No description available.'}
 									</p>
@@ -300,7 +300,7 @@
 										Parameters Schema
 									</h4>
 									<pre
-										class="rounded-md border border-border bg-muted/30 p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">{JSON.stringify(
+										class="rounded-md border border-border bg-muted/30 p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap max-h-64 overflow-y-auto">{JSON.stringify(
 											selectedSimulation.params_schema,
 											null,
 											2
@@ -369,7 +369,7 @@
 						</div>
 					</div>
 
-					<ScrollArea class="flex-1">
+					<ScrollArea class="flex-1 min-h-0">
 						<div class="px-6 py-5 space-y-6">
 							<!-- Description -->
 							<div>
@@ -378,7 +378,7 @@
 								>
 									Description
 								</h4>
-								<div class="rounded-md border border-border p-3 max-h-32 overflow-y-auto">
+								<div class="rounded-md border border-border p-3 max-h-64 overflow-y-auto">
 									<p class="text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
 										{selectedTemplate.description || 'No description available.'}
 									</p>
@@ -455,7 +455,7 @@
 						</div>
 					</div>
 
-					<ScrollArea class="flex-1">
+					<ScrollArea class="flex-1 min-h-0">
 						<div class="px-6 py-3 space-y-0.5">
 							{#if filteredSimulations.length === 0 && filteredTemplates.length === 0}
 								<p class="text-sm text-muted-foreground py-4 text-center">

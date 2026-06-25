@@ -8,8 +8,8 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { listScenarios, runScenario } from '$lib/api/client';
-	import type { SavedScenario } from '$lib/types';
+	import { listAssessments, runAssessment } from '$lib/api/client';
+	import type { Assessment } from '$lib/types';
 	import { scenarioTypeVariant } from '$lib/utils/format';
 	import FileIcon from '@lucide/svelte/icons/file';
 
@@ -21,35 +21,35 @@
 
 	let loading = $state(true);
 	let error = $state('');
-	let selectedScenarioId = $state('');
+	let selectedAssessmentId = $state('');
 	let parallelism = $state(5);
 	let timeout = $state('10m');
 	let running = $state(false);
-	let dialogScenarios = $state<SavedScenario[]>([]);
+	let dialogAssessments = $state<Assessment[]>([]);
 
-	let selectedScenarioType = $derived(
-		dialogScenarios.find((s) => s.id === selectedScenarioId)?.type || 'standard'
+	let selectedAssessmentType = $derived(
+		dialogAssessments.find((s) => s.id === selectedAssessmentId)?.type || 'standard'
 	);
 
 	let needsTimeout = $derived(
-		selectedScenarioType === 'explore' || selectedScenarioType === 'collect'
+		selectedAssessmentType === 'explore' || selectedAssessmentType === 'collect'
 	);
 
 	$effect(() => {
 		if (open) {
 			loading = true;
 			error = '';
-			selectedScenarioId = '';
+			selectedAssessmentId = '';
 			running = false;
 			timeout = '10m';
-			// Fetch first 100 most-recently-updated. A picker for >100 scenarios
+			// Fetch first 100 most-recently-updated. A picker for >100 assessments
 			// needs a real search affordance — out of scope here.
-			listScenarios(1, 100, {})
+			listAssessments(1, 100, {})
 				.then((page) => {
-					dialogScenarios = page.scenarios;
+					dialogAssessments = page.assessments;
 				})
 				.catch((e) => {
-					error = e instanceof Error ? e.message : 'Failed to load scenarios';
+					error = e instanceof Error ? e.message : 'Failed to load assessments';
 				})
 				.finally(() => {
 					loading = false;
@@ -58,7 +58,7 @@
 	});
 
 	async function handleRun() {
-		if (!selectedScenarioId) return;
+		if (!selectedAssessmentId) return;
 		if (needsTimeout && timeout && !/^\d+[smh]$/.test(timeout)) {
 			error = 'Invalid timeout format. Use a duration like 10m, 30s, or 1h.';
 			return;
@@ -66,28 +66,28 @@
 		running = true;
 		error = '';
 		try {
-			const isExplore = selectedScenarioType === 'explore';
-			const result = await runScenario(
-				selectedScenarioId,
+			const isExplore = selectedAssessmentType === 'explore';
+			const result = await runAssessment(
+				selectedAssessmentId,
 				parallelism,
 				isExplore,
 				false,
 				needsTimeout ? timeout : undefined
 			);
 			open = false;
-			goto(`/assessments/${result.runId}`);
+			goto(`/runs/${result.runId}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to start assessment';
+			error = e instanceof Error ? e.message : 'Failed to start run';
 			running = false;
 		}
 	}
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-w-xl">
+	<Dialog.Content class="sm:max-w-xl">
 		<Dialog.Header>
 			<Dialog.Title>New Assessment</Dialog.Title>
-			<Dialog.Description>Select a saved scenario and start a new assessment.</Dialog.Description>
+			<Dialog.Description>Select an assessment and start a new run.</Dialog.Description>
 		</Dialog.Header>
 
 		{#if error}
@@ -97,24 +97,24 @@
 		{/if}
 
 		{#if loading}
-			<p class="text-sm text-muted-foreground">Loading scenarios...</p>
-		{:else if dialogScenarios.length === 0}
+			<p class="text-sm text-muted-foreground">Loading assessments...</p>
+		{:else if dialogAssessments.length === 0}
 			<Empty.Root>
 				<Empty.Header>
 					<Empty.Media variant="icon">
 						<FileIcon />
 					</Empty.Media>
-					<Empty.Title>No saved scenarios</Empty.Title>
+					<Empty.Title>No saved assessments</Empty.Title>
 					<Empty.Description
-						>Create a scenario first, then come back to start an assessment.</Empty.Description
+						>Create an assessment first, then come back to start a run.</Empty.Description
 					>
 				</Empty.Header>
 				<Empty.Content>
 					<Button
 						onclick={() => {
 							open = false;
-							goto('/scenarios');
-						}}>Go to Scenarios</Button
+							goto('/assessments');
+						}}>Go to Assessments</Button
 					>
 				</Empty.Content>
 			</Empty.Root>
@@ -130,28 +130,28 @@
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each dialogScenarios as scenario}
+						{#each dialogAssessments as assessment}
 							<Table.Row
-								class="cursor-pointer {selectedScenarioId === scenario.id ? 'bg-muted' : ''}"
-								onclick={() => (selectedScenarioId = scenario.id)}
+								class="cursor-pointer {selectedAssessmentId === assessment.id ? 'bg-muted' : ''}"
+								onclick={() => (selectedAssessmentId = assessment.id)}
 							>
 								<Table.Cell>
 									<input
 										type="radio"
-										name="scenario"
-										value={scenario.id}
-										checked={selectedScenarioId === scenario.id}
-										onchange={() => (selectedScenarioId = scenario.id)}
+										name="assessment"
+										value={assessment.id}
+										checked={selectedAssessmentId === assessment.id}
+										onchange={() => (selectedAssessmentId = assessment.id)}
 										class="h-4 w-4"
 									/>
 								</Table.Cell>
-								<Table.Cell class="font-medium">{scenario.name}</Table.Cell>
+								<Table.Cell class="font-medium">{assessment.name}</Table.Cell>
 								<Table.Cell>
-									<Badge variant={scenarioTypeVariant(scenario.type)}
-										>{scenario.type || 'standard'}</Badge
+									<Badge variant={scenarioTypeVariant(assessment.type)}
+										>{assessment.type || 'standard'}</Badge
 									>
 								</Table.Cell>
-								<Table.Cell>{new Date(scenario.updatedAt).toLocaleDateString()}</Table.Cell>
+								<Table.Cell>{new Date(assessment.updatedAt).toLocaleDateString()}</Table.Cell>
 							</Table.Row>
 						{/each}
 					</Table.Body>
@@ -183,7 +183,7 @@
 				{#if needsTimeout}
 					<div class="rounded-md border border-border bg-muted/30 p-3">
 						<p class="text-xs text-muted-foreground">
-							{#if selectedScenarioType === 'explore'}
+							{#if selectedAssessmentType === 'explore'}
 								Explore mode: searches all alerts for indicators instead of matching specific rules.
 								Waits for the full timeout to discover all triggered alerts.
 							{:else}
@@ -196,7 +196,7 @@
 
 				<div class="flex justify-end gap-2">
 					<Button variant="outline" onclick={() => (open = false)}>Cancel</Button>
-					<Button onclick={handleRun} disabled={running || !selectedScenarioId}>
+					<Button onclick={handleRun} disabled={running || !selectedAssessmentId}>
 						{running ? 'Starting...' : 'Start'}
 					</Button>
 				</div>

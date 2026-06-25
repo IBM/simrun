@@ -130,12 +130,12 @@ func TestHandleListRuns_Filters(t *testing.T) {
 		n, tp := name, typ
 		now := time.Now().Add(-age)
 		require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
-			ID:           id,
-			Status:       "completed",
-			StartTime:    now,
-			CreatedAt:    now,
-			ScenarioName: &n,
-			ScenarioType: &tp,
+			ID:             id,
+			Status:         "completed",
+			StartTime:      now,
+			CreatedAt:      now,
+			AssessmentName: &n,
+			AssessmentType: &tp,
 		}))
 		return id
 	}
@@ -211,12 +211,12 @@ func TestHandleListRuns_FiltersExcludeUnlinkedRuns(t *testing.T) {
 	name, typ := "linked-scenario", "standard"
 	linkedID := uuid.New()
 	require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
-		ID:           linkedID,
-		Status:       "completed",
-		StartTime:    time.Now(),
-		CreatedAt:    time.Now(),
-		ScenarioName: &name,
-		ScenarioType: &typ,
+		ID:             linkedID,
+		Status:         "completed",
+		StartTime:      time.Now(),
+		CreatedAt:      time.Now(),
+		AssessmentName: &name,
+		AssessmentType: &typ,
 	}))
 
 	// Unfiltered: both visible.
@@ -263,8 +263,8 @@ func TestHandleListRuns_FilterValidation(t *testing.T) {
 	defer resp3.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp3.StatusCode)
 
-	// Invalid scenario_id rejected.
-	resp4 := ts.Get(t, "/api/runs?scenario_id=not-a-uuid")
+	// Invalid assessment_id rejected.
+	resp4 := ts.Get(t, "/api/runs?assessment_id=not-a-uuid")
 	defer resp4.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, resp4.StatusCode)
 }
@@ -278,19 +278,19 @@ func TestHandleListRuns_FilterByScenarioID(t *testing.T) {
 
 	want := uuid.New()
 	require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
-		ID:         want,
-		Status:     "completed",
-		StartTime:  time.Now(),
-		CreatedAt:  time.Now(),
-		ScenarioID: &scenarioA,
+		ID:           want,
+		Status:       "completed",
+		StartTime:    time.Now(),
+		CreatedAt:    time.Now(),
+		AssessmentID: &scenarioA,
 	}))
 	// Other scenario — must be filtered out.
 	require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
-		ID:         uuid.New(),
-		Status:     "completed",
-		StartTime:  time.Now(),
-		CreatedAt:  time.Now(),
-		ScenarioID: &scenarioB,
+		ID:           uuid.New(),
+		Status:       "completed",
+		StartTime:    time.Now(),
+		CreatedAt:    time.Now(),
+		AssessmentID: &scenarioB,
 	}))
 	// Ad-hoc run with no scenario — must also be filtered out.
 	require.NoError(t, ts.Stores.Run.Create(ctx, &db.Run{
@@ -300,7 +300,7 @@ func TestHandleListRuns_FilterByScenarioID(t *testing.T) {
 		CreatedAt: time.Now(),
 	}))
 
-	resp := ts.Get(t, "/api/runs?scenario_id="+scenarioA.String())
+	resp := ts.Get(t, "/api/runs?assessment_id="+scenarioA.String())
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 

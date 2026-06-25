@@ -14,7 +14,7 @@ import (
 // Scheduler manages cron-based scenario execution.
 type Scheduler struct {
 	scheduleStore   db.ScheduleStore
-	scenarioStore   db.ScenarioStore
+	assessmentStore db.AssessmentStore
 	scenarioService *ScenarioService
 	cron            *cron.Cron
 	mu              sync.Mutex
@@ -23,12 +23,12 @@ type Scheduler struct {
 }
 
 // NewScheduler creates a new Scheduler.
-func NewScheduler(scheduleStore db.ScheduleStore, scenarioStore db.ScenarioStore, scenarioService *ScenarioService) *Scheduler {
+func NewScheduler(scheduleStore db.ScheduleStore, assessmentStore db.AssessmentStore, scenarioService *ScenarioService) *Scheduler {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Scheduler{
 		scheduleStore:   scheduleStore,
-		scenarioStore:   scenarioStore,
+		assessmentStore: assessmentStore,
 		scenarioService: scenarioService,
 		cron:            cron.New(),
 		ctx:             ctx,
@@ -124,7 +124,7 @@ func (s *Scheduler) executeSchedule(scheduleID, scenarioID uuid.UUID) {
 		return
 	}
 
-	scenario, err := s.scenarioStore.Get(ctx, scenarioID)
+	scenario, err := s.assessmentStore.Get(ctx, scenarioID)
 	if err != nil {
 		logger.WithError(err).Error("Failed to load scenario for scheduled run")
 		return

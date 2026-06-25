@@ -44,16 +44,16 @@
 
 	function pick(t: ScenarioType) {
 		open = false;
-		goto(`/scenarios/new?type=${t}`);
+		goto(`/assessments/new?type=${t}`);
 	}
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-w-2xl">
+	<Dialog.Content class="sm:max-w-3xl">
 		<Dialog.Header>
-			<Dialog.Title>New Scenario</Dialog.Title>
+			<Dialog.Title>New Assessment</Dialog.Title>
 			<Dialog.Description>
-				Choose a scenario type. The type is fixed once created.
+				Choose an assessment type. The type is fixed once created.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-4 sm:grid-cols-3 pt-2">

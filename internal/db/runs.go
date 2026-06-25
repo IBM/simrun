@@ -17,7 +17,7 @@ type RunStore interface {
 	Get(ctx context.Context, id uuid.UUID) (*Run, error)
 	List(ctx context.Context, filters ListRunsFilters, limit, offset int) (RunPage, error)
 	// ListExpired returns the IDs of runs created before cutoff whose status is
-	// not "running" — the assessment-retention sweeper's deletion candidates.
+	// not "running" — the run-retention sweeper's deletion candidates.
 	ListExpired(ctx context.Context, cutoff time.Time) ([]uuid.UUID, error)
 	Update(ctx context.Context, id uuid.UUID, status string, total, succeeded, failed int, endTime *time.Time) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -34,32 +34,32 @@ type RunStore interface {
 	// UpdateScenarioIdentity records executor identity mid-run (after detonation),
 	// touching only the identity columns and leaving status/phase untouched.
 	UpdateScenarioIdentity(ctx context.Context, id uuid.UUID, executorName, executorType, executionID, simulationID string) error
-	// UpdateScenarioAssertions persists partial assertion results mid-run,
-	// touching only the assertions column and leaving status/phase untouched.
-	UpdateScenarioAssertions(ctx context.Context, id uuid.UUID, assertionsJSON []byte) error
+	// UpdateScenarioExpectations persists partial expectation results mid-run,
+	// touching only the expectations column and leaving status/phase untouched.
+	UpdateScenarioExpectations(ctx context.Context, id uuid.UUID, expectationsJSON []byte) error
 	CompleteScenarioResult(ctx context.Context, id uuid.UUID, result *ScenarioResult) error
 	IncrementRunCounters(ctx context.Context, id uuid.UUID, successDelta, failDelta int) error
 
-	// GetLatestAssertionResults returns the most recent pass/fail for each alert name.
-	GetLatestAssertionResults(ctx context.Context) ([]LatestAssertionResult, error)
+	// GetLatestExpectationResults returns the most recent pass/fail for each alert name.
+	GetLatestExpectationResults(ctx context.Context) ([]LatestExpectationResult, error)
 }
 
 // Run represents a single simrun execution.
 type Run struct {
-	ID           uuid.UUID  `json:"id"`
-	Status       string     `json:"status"`
-	StartTime    time.Time  `json:"startTime"`
-	EndTime      *time.Time `json:"endTime,omitempty"`
-	Total        int        `json:"total"`
-	Succeeded    int        `json:"succeeded"`
-	Failed       int        `json:"failed"`
-	ScenarioID   *uuid.UUID `json:"scenarioId,omitempty"`
-	ScenarioName *string    `json:"scenarioName,omitempty"`
-	ScenarioType *string    `json:"scenarioType,omitempty"`
-	ScheduleID   *uuid.UUID `json:"scheduleId,omitempty"`
-	ScheduleName *string    `json:"scheduleName,omitempty"`
-	CreatedBy    string     `json:"createdBy"`
-	CreatedAt    time.Time  `json:"createdAt"`
+	ID             uuid.UUID  `json:"id"`
+	Status         string     `json:"status"`
+	StartTime      time.Time  `json:"startTime"`
+	EndTime        *time.Time `json:"endTime,omitempty"`
+	Total          int        `json:"total"`
+	Succeeded      int        `json:"succeeded"`
+	Failed         int        `json:"failed"`
+	AssessmentID   *uuid.UUID `json:"assessmentId,omitempty"`
+	AssessmentName *string    `json:"assessmentName,omitempty"`
+	AssessmentType *string    `json:"assessmentType,omitempty"`
+	ScheduleID     *uuid.UUID `json:"scheduleId,omitempty"`
+	ScheduleName   *string    `json:"scheduleName,omitempty"`
+	CreatedBy      string     `json:"createdBy"`
+	CreatedAt      time.Time  `json:"createdAt"`
 }
 
 // ScenarioResult represents the result of a single scenario execution.
@@ -78,7 +78,7 @@ type ScenarioResult struct {
 	ExecutorType      string          `json:"executorType"`
 	ExecutionID       string          `json:"executionId"`
 	SimulationID      string          `json:"simulationId,omitempty"`
-	Assertions        json.RawMessage `json:"assertions,omitempty"`
+	Expectations      json.RawMessage `json:"expectations,omitempty"`
 	Indicators        json.RawMessage `json:"indicators,omitempty"`
 	Metadata          json.RawMessage `json:"metadata,omitempty"`
 	CollectedLogPath  *string         `json:"collectedLogPath,omitempty"`
@@ -96,22 +96,22 @@ type RunPage struct {
 // ListRunsFilters narrows the result set for RunStore.List. Zero values mean
 // "no constraint on this dimension".
 //
-// Note: filters that reference saved_scenarios columns (Name, Types) silently
-// exclude ad-hoc runs whose scenario_id is NULL, because NULL never matches an
+// Note: filters that reference assessments columns (Name, Types) silently
+// exclude ad-hoc runs whose assessment_id is NULL, because NULL never matches an
 // equality/LIKE predicate.
 type ListRunsFilters struct {
-	// Name is an ILIKE %name% match against saved_scenarios.name.
+	// Name is an ILIKE %name% match against assessments.name.
 	Name string
-	// Types restricts saved_scenarios.type to the listed values.
+	// Types restricts assessments.type to the listed values.
 	Types []string
 	// Since restricts runs to created_at >= Since.
 	Since *time.Time
-	// ScenarioID restricts runs to the given saved_scenarios.id.
-	ScenarioID *uuid.UUID
+	// AssessmentID restricts runs to the given assessments.id.
+	AssessmentID *uuid.UUID
 }
 
-// LatestAssertionResult holds the most recent pass/fail for a given alert name.
-type LatestAssertionResult struct {
+// LatestExpectationResult holds the most recent pass/fail for a given alert name.
+type LatestExpectationResult struct {
 	AlertName string    `json:"alertName"`
 	Passed    bool      `json:"passed"`
 	RunID     uuid.UUID `json:"runId"`
@@ -129,9 +129,9 @@ func NewRunStore(pool *pgxpool.Pool) RunStore {
 
 func (s *runStore) Create(ctx context.Context, run *Run) error {
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO runs (id, status, start_time, total, succeeded, failed, scenario_id, schedule_id, schedule_name, created_by)
+		`INSERT INTO runs (id, status, start_time, total, succeeded, failed, assessment_id, schedule_id, schedule_name, created_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		run.ID, run.Status, run.StartTime, run.Total, run.Succeeded, run.Failed, run.ScenarioID, run.ScheduleID, run.ScheduleName, run.CreatedBy,
+		run.ID, run.Status, run.StartTime, run.Total, run.Succeeded, run.Failed, run.AssessmentID, run.ScheduleID, run.ScheduleName, run.CreatedBy,
 	)
 	return err
 }
@@ -139,15 +139,15 @@ func (s *runStore) Create(ctx context.Context, run *Run) error {
 func (s *runStore) Get(ctx context.Context, id uuid.UUID) (*Run, error) {
 	row := s.pool.QueryRow(ctx,
 		`SELECT r.id, r.status, r.start_time, r.end_time, r.total, r.succeeded, r.failed,
-				r.scenario_id, ss.name, ss.type,
+				r.assessment_id, a.name, a.type,
 				r.schedule_id, r.schedule_name, r.created_by, r.created_at
 		 FROM runs r
-		 LEFT JOIN saved_scenarios ss ON r.scenario_id = ss.id
+		 LEFT JOIN assessments a ON r.assessment_id = a.id
 		 WHERE r.id = $1`, id,
 	)
 	var run Run
 	err := row.Scan(&run.ID, &run.Status, &run.StartTime, &run.EndTime, &run.Total, &run.Succeeded, &run.Failed,
-		&run.ScenarioID, &run.ScenarioName, &run.ScenarioType,
+		&run.AssessmentID, &run.AssessmentName, &run.AssessmentType,
 		&run.ScheduleID, &run.ScheduleName, &run.CreatedBy, &run.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -159,11 +159,11 @@ func (s *runStore) List(ctx context.Context, filters ListRunsFilters, limit, off
 	where, args := buildRunsWhere(filters)
 	rows, err := s.pool.Query(ctx,
 		`SELECT r.id, r.status, r.start_time, r.end_time, r.total, r.succeeded, r.failed,
-				r.scenario_id, ss.name, ss.type,
+				r.assessment_id, a.name, a.type,
 				r.schedule_id, r.schedule_name, r.created_by, r.created_at,
 				COUNT(*) OVER() AS total_count
 		 FROM runs r
-		 LEFT JOIN saved_scenarios ss ON r.scenario_id = ss.id
+		 LEFT JOIN assessments a ON r.assessment_id = a.id
 		 `+where+`
 		 ORDER BY r.created_at DESC
 		 LIMIT $`+strconv.Itoa(len(args)+1)+` OFFSET $`+strconv.Itoa(len(args)+2),
@@ -179,7 +179,7 @@ func (s *runStore) List(ctx context.Context, filters ListRunsFilters, limit, off
 		var run Run
 		var total int
 		if err := rows.Scan(&run.ID, &run.Status, &run.StartTime, &run.EndTime, &run.Total, &run.Succeeded, &run.Failed,
-			&run.ScenarioID, &run.ScenarioName, &run.ScenarioType,
+			&run.AssessmentID, &run.AssessmentName, &run.AssessmentType,
 			&run.ScheduleID, &run.ScheduleName, &run.CreatedBy, &run.CreatedAt, &total); err != nil {
 			return RunPage{}, err
 		}
@@ -192,7 +192,7 @@ func (s *runStore) List(ctx context.Context, filters ListRunsFilters, limit, off
 	if len(page.Runs) == 0 {
 		// COUNT(*) OVER() collapses to no rows when LIMIT/OFFSET yields nothing.
 		// Re-run the same filter as a plain COUNT so the UI can show "of N".
-		countSQL := `SELECT COUNT(*) FROM runs r LEFT JOIN saved_scenarios ss ON r.scenario_id = ss.id ` + where
+		countSQL := `SELECT COUNT(*) FROM runs r LEFT JOIN assessments a ON r.assessment_id = a.id ` + where
 		if err := s.pool.QueryRow(ctx, countSQL, args...).Scan(&page.Total); err != nil {
 			return RunPage{}, err
 		}
@@ -201,13 +201,13 @@ func (s *runStore) List(ctx context.Context, filters ListRunsFilters, limit, off
 }
 
 // buildRunsWhere returns a WHERE clause (or "") and its positional args for the
-// runs+saved_scenarios join. Placeholders are $1..$N in argument order.
+// runs+assessments join. Placeholders are $1..$N in argument order.
 func buildRunsWhere(f ListRunsFilters) (string, []any) {
 	var clauses []string
 	var args []any
 	if f.Name != "" {
 		args = append(args, "%"+f.Name+"%")
-		clauses = append(clauses, "ss.name ILIKE $"+strconv.Itoa(len(args)))
+		clauses = append(clauses, "a.name ILIKE $"+strconv.Itoa(len(args)))
 	}
 	if len(f.Types) > 0 {
 		placeholders := make([]string, len(f.Types))
@@ -215,15 +215,15 @@ func buildRunsWhere(f ListRunsFilters) (string, []any) {
 			args = append(args, t)
 			placeholders[i] = "$" + strconv.Itoa(len(args))
 		}
-		clauses = append(clauses, "ss.type IN ("+strings.Join(placeholders, ",")+")")
+		clauses = append(clauses, "a.type IN ("+strings.Join(placeholders, ",")+")")
 	}
 	if f.Since != nil {
 		args = append(args, *f.Since)
 		clauses = append(clauses, "r.created_at >= $"+strconv.Itoa(len(args)))
 	}
-	if f.ScenarioID != nil {
-		args = append(args, *f.ScenarioID)
-		clauses = append(clauses, "r.scenario_id = $"+strconv.Itoa(len(args)))
+	if f.AssessmentID != nil {
+		args = append(args, *f.AssessmentID)
+		clauses = append(clauses, "r.assessment_id = $"+strconv.Itoa(len(args)))
 	}
 	if len(clauses) == 0 {
 		return "", args
@@ -267,11 +267,11 @@ func (s *runStore) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (s *runStore) AddScenarioResult(ctx context.Context, runID uuid.UUID, result *ScenarioResult) error {
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO scenario_results (run_id, name, status, is_success, error_message, duration_secs, matching_dur_secs, time_executed, executor_name, executor_type, execution_id, simulation_id, assertions, indicators, metadata, collected_log_path, collected_doc_count, discovered_alerts)
+		`INSERT INTO scenario_results (run_id, name, status, is_success, error_message, duration_secs, matching_dur_secs, time_executed, executor_name, executor_type, execution_id, simulation_id, expectations, indicators, metadata, collected_log_path, collected_doc_count, discovered_alerts)
 		 VALUES ($1, $2, 'completed', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
 		runID, result.Name, result.IsSuccess, result.ErrorMessage, result.DurationSecs,
 		result.MatchingDurSecs, result.TimeExecuted, result.ExecutorName, result.ExecutorType,
-		result.ExecutionID, result.SimulationID, result.Assertions, result.Indicators, result.Metadata,
+		result.ExecutionID, result.SimulationID, result.Expectations, result.Indicators, result.Metadata,
 		result.CollectedLogPath, result.CollectedDocCount, result.DiscoveredAlerts,
 	)
 	return err
@@ -283,7 +283,7 @@ func (s *runStore) GetScenarioResults(ctx context.Context, runID uuid.UUID) ([]S
 			COALESCE(error_message, ''), COALESCE(duration_secs, 0), COALESCE(matching_dur_secs, 0),
 			time_executed,
 			COALESCE(executor_name, ''), COALESCE(executor_type, ''), COALESCE(execution_id, ''), COALESCE(simulation_id, ''),
-			assertions, indicators, metadata, collected_log_path, COALESCE(collected_doc_count, 0), discovered_alerts, created_at
+			expectations, indicators, metadata, collected_log_path, COALESCE(collected_doc_count, 0), discovered_alerts, created_at
 		 FROM scenario_results WHERE run_id = $1 ORDER BY created_at`,
 		runID,
 	)
@@ -297,7 +297,7 @@ func (s *runStore) GetScenarioResults(ctx context.Context, runID uuid.UUID) ([]S
 		var r ScenarioResult
 		if err := rows.Scan(&r.ID, &r.RunID, &r.Name, &r.Status, &r.Phase, &r.IsSuccess, &r.ErrorMessage,
 			&r.DurationSecs, &r.MatchingDurSecs, &r.TimeExecuted, &r.ExecutorName,
-			&r.ExecutorType, &r.ExecutionID, &r.SimulationID, &r.Assertions, &r.Indicators, &r.Metadata,
+			&r.ExecutorType, &r.ExecutionID, &r.SimulationID, &r.Expectations, &r.Indicators, &r.Metadata,
 			&r.CollectedLogPath, &r.CollectedDocCount, &r.DiscoveredAlerts, &r.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -312,13 +312,13 @@ func (s *runStore) GetScenarioResult(ctx context.Context, id uuid.UUID) (*Scenar
 			COALESCE(error_message, ''), COALESCE(duration_secs, 0), COALESCE(matching_dur_secs, 0),
 			time_executed,
 			COALESCE(executor_name, ''), COALESCE(executor_type, ''), COALESCE(execution_id, ''), COALESCE(simulation_id, ''),
-			assertions, indicators, metadata, collected_log_path, COALESCE(collected_doc_count, 0), discovered_alerts, created_at
+			expectations, indicators, metadata, collected_log_path, COALESCE(collected_doc_count, 0), discovered_alerts, created_at
 		 FROM scenario_results WHERE id = $1`, id,
 	)
 	var r ScenarioResult
 	err := row.Scan(&r.ID, &r.RunID, &r.Name, &r.Status, &r.Phase, &r.IsSuccess, &r.ErrorMessage,
 		&r.DurationSecs, &r.MatchingDurSecs, &r.TimeExecuted, &r.ExecutorName,
-		&r.ExecutorType, &r.ExecutionID, &r.SimulationID, &r.Assertions, &r.Indicators, &r.Metadata,
+		&r.ExecutorType, &r.ExecutionID, &r.SimulationID, &r.Expectations, &r.Indicators, &r.Metadata,
 		&r.CollectedLogPath, &r.CollectedDocCount, &r.DiscoveredAlerts, &r.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -351,10 +351,10 @@ func (s *runStore) UpdateScenarioIdentity(ctx context.Context, id uuid.UUID, exe
 	return err
 }
 
-func (s *runStore) UpdateScenarioAssertions(ctx context.Context, id uuid.UUID, assertionsJSON []byte) error {
+func (s *runStore) UpdateScenarioExpectations(ctx context.Context, id uuid.UUID, expectationsJSON []byte) error {
 	_, err := s.pool.Exec(ctx,
-		`UPDATE scenario_results SET assertions = $2 WHERE id = $1`,
-		id, assertionsJSON,
+		`UPDATE scenario_results SET expectations = $2 WHERE id = $1`,
+		id, expectationsJSON,
 	)
 	return err
 }
@@ -365,12 +365,12 @@ func (s *runStore) CompleteScenarioResult(ctx context.Context, id uuid.UUID, res
 			status = 'completed', phase = NULL,
 			is_success = $2, error_message = $3, duration_secs = $4, matching_dur_secs = $5,
 			time_executed = $6, executor_name = $7, executor_type = $8, execution_id = $9,
-			simulation_id = $10, assertions = $11, indicators = $12, metadata = $13,
+			simulation_id = $10, expectations = $11, indicators = $12, metadata = $13,
 			collected_log_path = $14, collected_doc_count = $15, discovered_alerts = $16
 		 WHERE id = $1`,
 		id, result.IsSuccess, result.ErrorMessage, result.DurationSecs, result.MatchingDurSecs,
 		result.TimeExecuted, result.ExecutorName, result.ExecutorType, result.ExecutionID,
-		result.SimulationID, result.Assertions, result.Indicators, result.Metadata,
+		result.SimulationID, result.Expectations, result.Indicators, result.Metadata,
 		result.CollectedLogPath, result.CollectedDocCount, result.DiscoveredAlerts,
 	)
 	return err
@@ -392,7 +392,7 @@ func (s *runStore) CompleteRun(ctx context.Context, id uuid.UUID, endTime *time.
 	return err
 }
 
-func (s *runStore) GetLatestAssertionResults(ctx context.Context) ([]LatestAssertionResult, error) {
+func (s *runStore) GetLatestExpectationResults(ctx context.Context) ([]LatestExpectationResult, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT DISTINCT ON (a.value->>'alertName')
 			a.value->>'alertName' AS alert_name,
@@ -400,9 +400,9 @@ func (s *runStore) GetLatestAssertionResults(ctx context.Context) ([]LatestAsser
 			sr.run_id,
 			sr.created_at
 		FROM scenario_results sr,
-			jsonb_array_elements(sr.assertions) AS a(value)
+			jsonb_array_elements(sr.expectations) AS a(value)
 		WHERE sr.status = 'completed'
-			AND sr.assertions IS NOT NULL
+			AND sr.expectations IS NOT NULL
 			AND a.value->>'matcherType' = 'Elastic Security alert'
 		ORDER BY a.value->>'alertName', sr.created_at DESC
 	`)
@@ -411,9 +411,9 @@ func (s *runStore) GetLatestAssertionResults(ctx context.Context) ([]LatestAsser
 	}
 	defer rows.Close()
 
-	var results []LatestAssertionResult
+	var results []LatestExpectationResult
 	for rows.Next() {
-		var r LatestAssertionResult
+		var r LatestExpectationResult
 		if err := rows.Scan(&r.AlertName, &r.Passed, &r.RunID, &r.CreatedAt); err != nil {
 			return nil, err
 		}

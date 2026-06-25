@@ -87,12 +87,12 @@ func deleteRunWithArtifacts(ctx context.Context, runStore db.RunStore, dataDir s
 	return nil
 }
 
-// SweepAssessments deletes whole runs (row + scenario_results + JSONL log +
+// SweepRuns deletes whole runs (row + scenario_results + JSONL log +
 // collected .ndjson artifacts) whose created_at is older than days. It is a
 // no-op when enabled is false. Runs still in the "running" status are excluded
 // by ListExpired, so an actively-writing run is never purged. A per-run delete
 // failure is logged and the sweep continues with the remaining runs.
-func SweepAssessments(ctx context.Context, runStore db.RunStore, dataDir string, enabled bool, days int) {
+func SweepRuns(ctx context.Context, runStore db.RunStore, dataDir string, enabled bool, days int) {
 	if !enabled {
 		return
 	}
@@ -100,13 +100,13 @@ func SweepAssessments(ctx context.Context, runStore db.RunStore, dataDir string,
 	cutoff := time.Now().AddDate(0, 0, -days)
 	ids, err := runStore.ListExpired(ctx, cutoff)
 	if err != nil {
-		logrus.WithError(err).Warn("assessment sweep: failed to list expired runs")
+		logrus.WithError(err).Warn("run retention sweep: failed to list expired runs")
 		return
 	}
 
 	for _, id := range ids {
 		if err := deleteRunWithArtifacts(ctx, runStore, dataDir, id); err != nil {
-			logrus.WithError(err).WithField("run_id", id).Warn("assessment sweep: failed to delete expired run")
+			logrus.WithError(err).WithField("run_id", id).Warn("run retention sweep: failed to delete expired run")
 		}
 	}
 }

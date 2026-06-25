@@ -13,7 +13,7 @@
 	import RunLog from '$lib/components/RunLog.svelte';
 	import { currentRun, loadRun } from '$lib/stores/runs';
 	import { websocket } from '$lib/stores/websocket';
-	import { getRunLogs, getScenario, deleteRun } from '$lib/api/client';
+	import { getRunLogs, getAssessment, deleteRun } from '$lib/api/client';
 	import { ScenarioTracker } from '$lib/stores/scenario-tracker.svelte';
 	import { statusVariant, formatDuration, formatUserEmail } from '$lib/utils/format';
 	import type { WSMessage, RunLogEntry } from '$lib/types';
@@ -31,9 +31,9 @@
 	let deleteDialogOpen = $state(false);
 	let deleting = $state(false);
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
-	let scenarioName = $state<string | null>(null);
+	let assessmentName = $state<string | null>(null);
 
-	const runId = $derived($page.params.runId!);
+	const runId = $derived($page.params.id!);
 
 	const trackerSucceeded = $derived(
 		Object.values(tracker.entries).filter((e) => e.status === 'completed' && e.result?.isSuccess)
@@ -79,7 +79,7 @@
 		const id = runId;
 		loading = true;
 		error = '';
-		scenarioName = null;
+		assessmentName = null;
 		tracker.reset();
 		stopPolling();
 
@@ -92,19 +92,19 @@
 				if ($currentRun?.scenarioResults) {
 					tracker.setScenarios($currentRun.scenarioResults);
 				}
-				if ($currentRun?.scenarioId) {
+				if ($currentRun?.assessmentId) {
 					try {
-						const scenario = await getScenario($currentRun.scenarioId);
-						scenarioName = scenario.name;
+						const assessment = await getAssessment($currentRun.assessmentId);
+						assessmentName = assessment.name;
 					} catch {
-						// Scenario may have been deleted
+						// Assessment may have been deleted
 					}
 				}
 				if ($currentRun?.status === 'running') {
 					pollTimer = setInterval(pollRun, 5000);
 				}
 			} catch (e) {
-				error = e instanceof Error ? e.message : 'Failed to load assessment';
+				error = e instanceof Error ? e.message : 'Failed to load run';
 			} finally {
 				loading = false;
 			}
@@ -128,7 +128,7 @@
 		error = '';
 		try {
 			await deleteRun(runId);
-			goto('/assessments');
+			goto('/runs');
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Delete failed';
 			deleting = false;
@@ -160,7 +160,7 @@
 		<Breadcrumb.Root class="animate-fade-up stagger-1">
 			<Breadcrumb.List>
 				<Breadcrumb.Item>
-					<Breadcrumb.Link href="/assessments">Assessments</Breadcrumb.Link>
+					<Breadcrumb.Link href="/runs">Runs</Breadcrumb.Link>
 				</Breadcrumb.Item>
 				<Breadcrumb.Separator />
 				<Breadcrumb.Item>
@@ -201,15 +201,15 @@
 						<div class="flex flex-wrap items-center gap-2.5">
 							<h1 class="font-mono text-lg font-bold leading-none">{$currentRun.id.slice(0, 8)}</h1>
 							<Badge variant={statusVariant($currentRun.status)}>{$currentRun.status}</Badge>
-							{#if $currentRun.scenarioType}
+							{#if $currentRun.assessmentType}
 								<Badge
-									variant={$currentRun.scenarioType === 'explore'
+									variant={$currentRun.assessmentType === 'explore'
 										? 'secondary'
-										: $currentRun.scenarioType === 'collect'
+										: $currentRun.assessmentType === 'collect'
 											? 'outline'
 											: 'default'}
 								>
-									{$currentRun.scenarioType}
+									{$currentRun.assessmentType}
 								</Badge>
 							{/if}
 						</div>
@@ -217,18 +217,18 @@
 						<div
 							class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
 						>
-							{#if $currentRun.scenarioId}
+							{#if $currentRun.assessmentId}
 								<span class="inline-flex items-center gap-1">
 									<FileTextIcon class="h-3.5 w-3.5 shrink-0" />
-									{#if scenarioName}
+									{#if assessmentName}
 										<a
-											href={`/scenarios/${$currentRun.scenarioId}`}
+											href={`/assessments/${$currentRun.assessmentId}`}
 											class="max-w-[240px] truncate text-foreground underline-offset-2 hover:underline"
 										>
-											{scenarioName}
+											{assessmentName}
 										</a>
 									{:else}
-										<span class="font-mono">{$currentRun.scenarioId.slice(0, 8)}</span>
+										<span class="font-mono">{$currentRun.assessmentId.slice(0, 8)}</span>
 									{/if}
 								</span>
 							{/if}
@@ -343,10 +343,10 @@
 <Dialog.Root bind:open={deleteDialogOpen}>
 	<Dialog.Content>
 		<Dialog.Header>
-			<Dialog.Title>Delete Assessment</Dialog.Title>
+			<Dialog.Title>Delete Run</Dialog.Title>
 			<Dialog.Description>
-				Are you sure you want to delete this assessment? This will permanently remove the
-				assessment, all scenario results, and log files. This action cannot be undone.
+				Are you sure you want to delete this run? This will permanently remove the run, all scenario
+				results, and log files. This action cannot be undone.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex justify-end gap-2 pt-4">

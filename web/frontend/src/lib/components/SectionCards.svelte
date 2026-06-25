@@ -12,12 +12,12 @@
 		totalRuns,
 		ruleCoveragePercent,
 		activeRuns,
-		savedScenarios
+		savedAssessments
 	}: {
 		totalRuns: number;
 		ruleCoveragePercent: number;
 		activeRuns: number;
-		savedScenarios: number;
+		savedAssessments: number;
 	} = $props();
 
 	const rateIsGood = $derived(ruleCoveragePercent >= 50);
@@ -65,7 +65,7 @@
 					Coverage needs attention <TrendingDownIcon class="size-4 text-destructive" />
 				{/if}
 			</div>
-			<div class="text-muted-foreground text-xs">Rules covered by saved scenarios</div>
+			<div class="text-muted-foreground text-xs">Rules covered by saved assessments</div>
 		</Card.Footer>
 	</Card.Root>
 
@@ -75,14 +75,14 @@
 				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
 					<PlayIcon class="h-4 w-4 text-muted-foreground" />
 				</div>
-				<Card.Description class="text-sm font-medium">Total Assessments</Card.Description>
+				<Card.Description class="text-sm font-medium">Total Runs</Card.Description>
 			</div>
 			<Card.Title class="text-2xl font-bold tabular-nums font-mono @[250px]/card:text-3xl">
 				{totalRuns}
 			</Card.Title>
 		</Card.Header>
 		<Card.Footer class="flex-col items-start gap-1.5 text-sm">
-			<div class="text-muted-foreground text-xs">All completed and active assessments</div>
+			<div class="text-muted-foreground text-xs">All completed and active runs</div>
 		</Card.Footer>
 	</Card.Root>
 
@@ -98,14 +98,14 @@
 						class="h-4 w-4 {activeRuns > 0 ? 'text-primary' : 'text-muted-foreground'}"
 					/>
 				</div>
-				<Card.Description class="text-sm font-medium">Active Assessments</Card.Description>
+				<Card.Description class="text-sm font-medium">Active Runs</Card.Description>
 			</div>
 			<Card.Title class="text-2xl font-bold tabular-nums font-mono @[250px]/card:text-3xl">
 				{activeRuns}
 			</Card.Title>
 		</Card.Header>
 		<Card.Footer class="flex-col items-start gap-1.5 text-sm">
-			<div class="text-muted-foreground text-xs">Assessments currently in progress</div>
+			<div class="text-muted-foreground text-xs">Runs currently in progress</div>
 		</Card.Footer>
 	</Card.Root>
 
@@ -115,14 +115,14 @@
 				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
 					<FileTextIcon class="h-4 w-4 text-muted-foreground" />
 				</div>
-				<Card.Description class="text-sm font-medium">Saved Scenarios</Card.Description>
+				<Card.Description class="text-sm font-medium">Assessments</Card.Description>
 			</div>
 			<Card.Title class="text-2xl font-bold tabular-nums font-mono @[250px]/card:text-3xl">
-				{savedScenarios}
+				{savedAssessments}
 			</Card.Title>
 		</Card.Header>
 		<Card.Footer class="flex-col items-start gap-1.5 text-sm">
-			<div class="text-muted-foreground text-xs">Configured scenario definitions</div>
+			<div class="text-muted-foreground text-xs">Configured assessment definitions</div>
 		</Card.Footer>
 	</Card.Root>
 </div>

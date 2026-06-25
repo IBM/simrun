@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,12 +16,13 @@ import (
 	"github.com/IBM/simrun/internal/version"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Handlers provides REST handlers for scenarios, runs, config, and version.
 type Handlers struct {
 	scenarioService *ScenarioService
-	scenarioStore   db.ScenarioStore
+	assessmentStore db.AssessmentStore
 	runStore        db.RunStore
 	configStore     db.ConfigStore
 	scheduler       *Scheduler
@@ -28,10 +30,10 @@ type Handlers struct {
 }
 
 // NewHandlers creates a new Handlers instance.
-func NewHandlers(ss *ScenarioService, scenarioStore db.ScenarioStore, runStore db.RunStore, configStore db.ConfigStore, scheduler *Scheduler, dataDir string) *Handlers {
+func NewHandlers(ss *ScenarioService, assessmentStore db.AssessmentStore, runStore db.RunStore, configStore db.ConfigStore, scheduler *Scheduler, dataDir string) *Handlers {
 	return &Handlers{
 		scenarioService: ss,
-		scenarioStore:   scenarioStore,
+		assessmentStore: assessmentStore,
 		runStore:        runStore,
 		configStore:     configStore,
 		scheduler:       scheduler,
@@ -39,7 +41,7 @@ func NewHandlers(ss *ScenarioService, scenarioStore db.ScenarioStore, runStore d
 	}
 }
 
-// HandleLint handles POST /api/scenarios/lint
+// HandleLint handles POST /api/assessments/lint
 func (h *Handlers) HandleLint(w http.ResponseWriter, r *http.Request) {
 	var req LintRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -56,7 +58,8 @@ func (h *Handlers) HandleLint(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// HandleRun handles POST /api/scenarios/run
+// HandleRun handles POST /api/runs. It starts a run of the saved assessment
+// referenced by {assessmentId} and returns the new runId.
 func (h *Handlers) HandleRun(w http.ResponseWriter, r *http.Request) {
 	var req RunRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -64,9 +67,9 @@ func (h *Handlers) HandleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scenarioID, err := uuid.Parse(req.ScenarioID)
+	assessmentID, err := uuid.Parse(req.AssessmentID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid scenarioId")
+		writeError(w, http.StatusBadRequest, "invalid assessmentId")
 		return
 	}
 
@@ -79,7 +82,7 @@ func (h *Handlers) HandleRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	runID, err := h.scenarioService.Run(r.Context(), scenarioID, &RunOptions{
+	runID, err := h.scenarioService.Run(r.Context(), assessmentID, &RunOptions{
 		Parallelism:   req.Parallelism,
 		CreatedBy:     getUserEmail(r),
 		ExploreMode:   req.ExploreMode,
@@ -94,45 +97,45 @@ func (h *Handlers) HandleRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, RunResponse{RunID: runID})
 }
 
-// HandleListScenarios handles GET /api/scenarios.
+// HandleListAssessments handles GET /api/assessments.
 // Pagination: page (default 1), per_page (default 50, clamped to [1, 100]).
-// Filters: name (ILIKE %name% on scenario name), type (repeatable —
+// Filters: name (ILIKE %name% on assessment name), type (repeatable —
 // e.g. ?type=standard&type=explore), since (Go duration like "24h" — returns
-// scenarios updated in that window).
-func (h *Handlers) HandleListScenarios(w http.ResponseWriter, r *http.Request) {
+// assessments updated in that window).
+func (h *Handlers) HandleListAssessments(w http.ResponseWriter, r *http.Request) {
 	page, perPage := parsePagination(r, 50, 100)
-	filters, err := parseScenarioFilters(r)
+	filters, err := parseAssessmentFilters(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	res, err := h.scenarioStore.List(r.Context(), filters, perPage, (page-1)*perPage)
+	res, err := h.assessmentStore.List(r.Context(), filters, perPage, (page-1)*perPage)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"scenarios": res.Scenarios,
-		"total":     res.Total,
-		"page":      page,
-		"perPage":   perPage,
+		"assessments": res.Assessments,
+		"total":       res.Total,
+		"page":        page,
+		"perPage":     perPage,
 	})
 }
 
-// parseScenarioFilters extracts filter query params for HandleListScenarios.
-func parseScenarioFilters(r *http.Request) (db.ListScenariosFilters, error) {
+// parseAssessmentFilters extracts filter query params for HandleListAssessments.
+func parseAssessmentFilters(r *http.Request) (db.ListAssessmentsFilters, error) {
 	q := r.URL.Query()
-	f := db.ListScenariosFilters{Name: q.Get("name")}
+	f := db.ListAssessmentsFilters{Name: q.Get("name")}
 	for _, t := range q["type"] {
 		if !validScenarioTypes[t] {
-			return db.ListScenariosFilters{}, fmt.Errorf("invalid type %q (allowed: standard, explore, collect)", t)
+			return db.ListAssessmentsFilters{}, fmt.Errorf("invalid type %q (allowed: standard, explore, collect)", t)
 		}
 		f.Types = append(f.Types, t)
 	}
 	if s := q.Get("since"); s != "" {
 		d, err := time.ParseDuration(s)
 		if err != nil || d <= 0 {
-			return db.ListScenariosFilters{}, fmt.Errorf("invalid since %q (expected Go duration like '24h')", s)
+			return db.ListAssessmentsFilters{}, fmt.Errorf("invalid since %q (expected Go duration like '24h')", s)
 		}
 		t := time.Now().Add(-d)
 		f.Since = &t
@@ -140,22 +143,26 @@ func parseScenarioFilters(r *http.Request) (db.ListScenariosFilters, error) {
 	return f, nil
 }
 
-// HandleSaveScenario handles POST /api/scenarios
-func (h *Handlers) HandleSaveScenario(w http.ResponseWriter, r *http.Request) {
-	var req SaveScenarioRequest
+// HandleSaveAssessment handles POST /api/assessments. A duplicate name returns 409.
+func (h *Handlers) HandleSaveAssessment(w http.ResponseWriter, r *http.Request) {
+	var req SaveAssessmentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	scenarioType, err := normalizeScenarioType(req.Type)
+	assessmentType, err := normalizeScenarioType(req.Type)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	saved, err := h.scenarioStore.Save(r.Context(), req.Name, scenarioType, req.YAML, getUserEmail(r))
+	saved, err := h.assessmentStore.Save(r.Context(), req.Name, assessmentType, req.YAML, getUserEmail(r))
 	if err != nil {
+		if isUniqueViolation(err) {
+			writeError(w, http.StatusConflict, fmt.Sprintf("an assessment named %q already exists", req.Name))
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -163,44 +170,66 @@ func (h *Handlers) HandleSaveScenario(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, saved)
 }
 
-// HandleGetScenario handles GET /api/scenarios/{id}
-func (h *Handlers) HandleGetScenario(w http.ResponseWriter, r *http.Request) {
+// HandleGetAssessment handles GET /api/assessments/{id}
+func (h *Handlers) HandleGetAssessment(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid scenario ID")
+		writeError(w, http.StatusBadRequest, "invalid assessment ID")
 		return
 	}
 
-	scenario, err := h.scenarioStore.Get(r.Context(), id)
+	assessment, err := h.assessmentStore.Get(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "scenario not found")
+		writeError(w, http.StatusNotFound, "assessment not found")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, scenario)
+	writeJSON(w, http.StatusOK, assessment)
 }
 
-// HandleUpdateScenario handles PUT /api/scenarios/{id}
-func (h *Handlers) HandleUpdateScenario(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid scenario ID")
+// HandleGetAssessmentByName handles GET /api/assessments/by-name/{name}. The
+// returned JSON includes the raw yaml field.
+func (h *Handlers) HandleGetAssessmentByName(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "assessment name is required")
 		return
 	}
 
-	var req SaveScenarioRequest
+	assessment, err := h.assessmentStore.GetByName(r.Context(), name)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "assessment not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, assessment)
+}
+
+// HandleUpdateAssessment handles PUT /api/assessments/{id}
+func (h *Handlers) HandleUpdateAssessment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid assessment ID")
+		return
+	}
+
+	var req SaveAssessmentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	scenarioType, err := normalizeScenarioType(req.Type)
+	assessmentType, err := normalizeScenarioType(req.Type)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err := h.scenarioStore.Update(r.Context(), id, req.Name, scenarioType, req.YAML, getUserEmail(r)); err != nil {
+	if err := h.assessmentStore.Update(r.Context(), id, req.Name, assessmentType, req.YAML, getUserEmail(r)); err != nil {
+		if isUniqueViolation(err) {
+			writeError(w, http.StatusConflict, fmt.Sprintf("an assessment named %q already exists", req.Name))
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -208,15 +237,15 @@ func (h *Handlers) HandleUpdateScenario(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleDeleteScenario handles DELETE /api/scenarios/{id}
-func (h *Handlers) HandleDeleteScenario(w http.ResponseWriter, r *http.Request) {
+// HandleDeleteAssessment handles DELETE /api/assessments/{id}
+func (h *Handlers) HandleDeleteAssessment(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid scenario ID")
+		writeError(w, http.StatusBadRequest, "invalid assessment ID")
 		return
 	}
 
-	if err := h.scenarioStore.Delete(r.Context(), id); err != nil {
+	if err := h.assessmentStore.Delete(r.Context(), id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -273,14 +302,37 @@ func parseRunFilters(r *http.Request) (db.ListRunsFilters, error) {
 		t := time.Now().Add(-d)
 		f.Since = &t
 	}
-	if s := q.Get("scenario_id"); s != "" {
+	if s := q.Get("assessment_id"); s != "" {
 		id, err := uuid.Parse(s)
 		if err != nil {
-			return db.ListRunsFilters{}, fmt.Errorf("invalid scenario_id %q", s)
+			return db.ListRunsFilters{}, fmt.Errorf("invalid assessment_id %q", s)
 		}
-		f.ScenarioID = &id
+		f.AssessmentID = &id
 	}
 	return f, nil
+}
+
+// HandleListAssessmentRuns handles GET /api/assessments/{id}/runs — the runs of
+// a single assessment, most recent first. Read-only; runs are created at
+// POST /api/runs.
+func (h *Handlers) HandleListAssessmentRuns(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid assessment ID")
+		return
+	}
+	page, perPage := parsePagination(r, 50, 100)
+	res, err := h.runStore.List(r.Context(), db.ListRunsFilters{AssessmentID: &id}, perPage, (page-1)*perPage)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"runs":    res.Runs,
+		"total":   res.Total,
+		"page":    page,
+		"perPage": perPage,
+	})
 }
 
 // parsePagination reads `page` and `per_page` query params, applying defaults and clamps.
@@ -429,7 +481,7 @@ func (h *Handlers) HandleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Retention day fields must be >= 1 so they cannot be set to a value that
 	// deletes data immediately. Other keys keep the permissive key/value behavior.
-	if req.Key == "assessment_log_retention_days" || req.Key == "assessment_retention_days" {
+	if req.Key == "run_log_retention_days" || req.Key == "run_retention_days" {
 		var days int
 		if err := json.Unmarshal(req.Value, &days); err != nil || days < 1 {
 			writeError(w, http.StatusBadRequest, req.Key+" must be at least 1")
@@ -453,6 +505,13 @@ func (h *Handlers) HandleVersion(w http.ResponseWriter, r *http.Request) {
 		BuildDate: version.BuildDate,
 		GoVersion: runtime.Version(),
 	})
+}
+
+// isUniqueViolation reports whether err is a Postgres unique-constraint
+// violation (SQLSTATE 23505), used to map duplicate assessment names to 409.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // normalizeScenarioType validates and defaults the scenario type.

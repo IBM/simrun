@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/IBM/simrun/internal/matchers"
-	"github.com/IBM/simrun/internal/results"
 	"github.com/IBM/simrun/internal/runner"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -34,7 +33,7 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 	runID := uuid.New()
 	a1 := stubMatcher{matcher: "elastic", alert: "Suspicious AWS API Call"}
 	a2 := stubMatcher{matcher: "datadog", alert: "Privilege Escalation"}
-	res := &results.ScenarioRunResult{
+	res := &runner.ScenarioResult{
 		Name:                    "scenario-a",
 		Success:                 true,
 		DurationSeconds:         1.5,
@@ -43,7 +42,7 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 		ExecutorName:            "simrun",
 		ExecutorType:            "detonator",
 		ExecutionId:             "exec-1",
-		Assertions:              []matchers.AlertGeneratedMatcher{a1, a2},
+		Matchers:                []matchers.AlertGeneratedMatcher{a1, a2},
 	}
 
 	row := buildScenarioResultRow(runID, res)
@@ -53,8 +52,8 @@ func TestBuildScenarioResultRow_SuccessWithAssertions(t *testing.T) {
 	require.NotNil(t, row.IsSuccess)
 	assert.True(t, *row.IsSuccess)
 
-	var got []assertionDTO
-	require.NoError(t, json.Unmarshal(row.Assertions, &got))
+	var got []expectationDTO
+	require.NoError(t, json.Unmarshal(row.Expectations, &got))
 	require.Len(t, got, 2)
 	for _, d := range got {
 		assert.True(t, d.Passed, "all assertions pass on a successful run: %+v", d)
@@ -69,12 +68,12 @@ func TestBuildScenarioResultRow_FailureWithNilFailedAssertions(t *testing.T) {
 	// success=true" — that would be misleading).
 	runID := uuid.New()
 	a := stubMatcher{matcher: "elastic", alert: "Whatever"}
-	res := &results.ScenarioRunResult{
-		Name:             "scenario-b",
-		Success:          false,
-		ErrorMessage:     "detonate timeout",
-		Assertions:       []matchers.AlertGeneratedMatcher{a},
-		FailedAssertions: nil,
+	res := &runner.ScenarioResult{
+		Name:              "scenario-b",
+		Success:           false,
+		ErrorMessage:      "detonate timeout",
+		Matchers:          []matchers.AlertGeneratedMatcher{a},
+		UnmetExpectations: nil,
 	}
 
 	row := buildScenarioResultRow(runID, res)
@@ -83,8 +82,8 @@ func TestBuildScenarioResultRow_FailureWithNilFailedAssertions(t *testing.T) {
 	assert.False(t, *row.IsSuccess)
 	assert.Equal(t, "detonate timeout", row.ErrorMessage)
 
-	var got []assertionDTO
-	require.NoError(t, json.Unmarshal(row.Assertions, &got))
+	var got []expectationDTO
+	require.NoError(t, json.Unmarshal(row.Expectations, &got))
 	require.Len(t, got, 1)
 	assert.False(t, got[0].Passed, "fallback branch marks all assertions as failed when FailedAssertions is nil")
 }
@@ -92,7 +91,7 @@ func TestBuildScenarioResultRow_FailureWithNilFailedAssertions(t *testing.T) {
 func TestBuildScenarioResultRow_ExploreModeIncludesDiscoveredAlerts(t *testing.T) {
 	// Explore mode emits DiscoveredAlerts; the column is empty in non-explore runs.
 	runID := uuid.New()
-	res := &results.ScenarioRunResult{
+	res := &runner.ScenarioResult{
 		Name:        "scenario-c",
 		Success:     true,
 		ExploreMode: true,

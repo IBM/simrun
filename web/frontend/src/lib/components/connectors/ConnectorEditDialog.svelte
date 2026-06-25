@@ -132,7 +132,7 @@
 		}
 	}}
 >
-	<Dialog.Content class="max-w-2xl">
+	<Dialog.Content class="sm:max-w-2xl">
 		<Dialog.Header>
 			<Dialog.Title>Edit Connector</Dialog.Title>
 			<Dialog.Description>Update connector settings and credentials.</Dialog.Description>

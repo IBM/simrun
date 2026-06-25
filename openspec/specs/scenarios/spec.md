@@ -11,17 +11,26 @@ over the WebSocket.
 
 ## Requirements
 
-### Requirement: Saved Scenario Resource
-The system SHALL persist saved scenarios in `saved_scenarios` with fields
-`id` (UUID), `name`, `yaml` (raw text), `type` (`standard` | `explore` | `collect`,
-default `standard`), `created_by`, `updated_by`, `created_at`, `updated_at`.
+### Requirement: Assessment Resource
+The system SHALL persist saved assessment definitions in the `assessments` table
+with fields `id` (UUID), `name` (UNIQUE), `yaml` (raw text), `type`
+(`standard` | `explore` | `collect`, default `standard`), `created_by`,
+`updated_by`, `created_at`, `updated_at`. An **assessment** is the saved
+definition; its `yaml` body contains a `scenarios:` array of individual scenarios
+(the per-case vocabulary and YAML schema are unchanged). Because an assessment
+serializes to `<name>.yaml`, `name` is unique and serves as a human-addressable
+slug.
 
 #### Scenario: Create with default type
-- **WHEN** a client posts a scenario without specifying `type`
+- **WHEN** a client posts an assessment without specifying `type`
 - **THEN** the inserted row has `type = "standard"`
 
+#### Scenario: Duplicate name rejected
+- **WHEN** a client posts an assessment whose `name` already exists
+- **THEN** the response is HTTP 409 and no row is inserted
+
 #### Scenario: Invalid type rejected
-- **WHEN** a client posts a scenario with `type: "fast"`
+- **WHEN** a client posts an assessment with `type: "fast"`
 - **THEN** the response is HTTP 400 with `"type must be 'standard', 'explore', or 'collect'"`
 
 ### Requirement: YAML Stored Verbatim
@@ -46,64 +55,26 @@ and return either `{valid: true, scenarios: [...]}` or `{valid: false, error}`.
 - **WHEN** a client posts YAML that the parser rejects (e.g., unknown pack)
 - **THEN** the response is `{valid: false, error: "<parser message>"}`
 
-### Requirement: List Saved Scenarios
-The system SHALL serve `GET /api/scenarios` as a paginated, filterable
-list ordered by `updated_at DESC`. The response SHALL be a JSON object
-`{scenarios, total, page, perPage}` where `scenarios` is the page slice
-(possibly empty array, never `null`) and `total` is the row count after
-filters but before `LIMIT/OFFSET`.
-
-Query parameters:
-- `page` (integer, default `1`, must be `>= 1`).
-- `per_page` (integer, default `50`, clamped to `[1, 100]`).
-- `name` (string, optional) — case-insensitive substring match against
-  `saved_scenarios.name` (`ILIKE %name%`).
-- `type` (string, repeatable) — restricts `saved_scenarios.type` to
-  the listed values. Allowed values: `standard`, `explore`, `collect`.
-  An unrecognized value SHALL return HTTP 400.
-- `since` (Go duration string, optional, e.g. `24h`, `168h`) —
-  restricts results to `updated_at >= now() - since`. A malformed or
-  non-positive duration SHALL return HTTP 400.
+### Requirement: List Assessments
+The system SHALL serve `GET /api/assessments` as a paginated, filterable list
+ordered by `updated_at DESC`, returning `{assessments, total, page, perPage}`
+where `assessments` is the page slice (possibly empty, never `null`). The system
+SHALL additionally serve a single assessment by its unique name via
+`GET /api/assessments/{name}`, returning its JSON (which already includes the
+raw `yaml` field). Query parameters (`page`, `per_page`, `name`, `type`, `since`)
+behave as before against `assessments.name`/`.type`.
 
 #### Scenario: Most-recently-updated first
-- **WHEN** a client requests `/api/scenarios` with no parameters
-- **THEN** the response is HTTP 200 with `{scenarios, total, page: 1, perPage: 50}` and `scenarios` is ordered with the most recently updated scenario first
+- **WHEN** a client requests `/api/assessments` with no parameters
+- **THEN** the response is HTTP 200 with `{assessments, total, page: 1, perPage: 50}` ordered with the most recently updated assessment first
 
-#### Scenario: Pagination slice
-- **WHEN** a client requests `/api/scenarios?page=2&per_page=25` and there are 60 saved scenarios matching no filters
-- **THEN** `total = 60`, `page = 2`, `perPage = 25`, and `scenarios.length` is 25 (rows 26–50 in `updated_at DESC` order)
-
-#### Scenario: Empty page beyond range
-- **WHEN** a client requests `page=99` on a table with 10 rows
-- **THEN** the response is HTTP 200 with `scenarios: []` and `total: 10`
-
-#### Scenario: Name substring filter
-- **WHEN** a client requests `/api/scenarios?name=login`
-- **THEN** only scenarios whose `name` contains `"login"` (case-insensitive) are returned, and `total` reflects the filtered count
-
-#### Scenario: Multi-type filter
-- **WHEN** a client requests `/api/scenarios?type=standard&type=explore`
-- **THEN** the response includes only scenarios whose `type` is `standard` or `explore`
+#### Scenario: Fetch by name
+- **WHEN** a client requests `/api/assessments/aws-privesc`
+- **THEN** the response is the JSON for the assessment named `aws-privesc`, including its raw `yaml` field
 
 #### Scenario: Invalid type rejected
-- **WHEN** a client requests `/api/scenarios?type=bogus`
+- **WHEN** a client requests `/api/assessments?type=bogus`
 - **THEN** the response is HTTP 400 and no rows are returned
-
-#### Scenario: Since window filter
-- **WHEN** a client requests `/api/scenarios?since=24h`
-- **THEN** the response includes only scenarios with `updated_at >= now() - 24h`
-
-#### Scenario: Malformed since rejected
-- **WHEN** a client requests `/api/scenarios?since=abc`
-- **THEN** the response is HTTP 400
-
-#### Scenario: Combined filters
-- **WHEN** a client requests `/api/scenarios?name=ssh&type=explore&since=168h&page=1&per_page=25`
-- **THEN** results are scenarios whose name ILIKE `%ssh%` AND type is `explore` AND `updated_at` is within the past week, paginated to the first 25 in `updated_at DESC` order, with `total` reflecting all matches
-
-#### Scenario: per_page clamped to maximum
-- **WHEN** a client requests `/api/scenarios?per_page=500`
-- **THEN** `perPage` in the response is `100` and at most 100 rows are returned
 
 ### Requirement: Update Without Re-Validation
 The system SHALL accept `PUT /api/scenarios/{id}` updates that replace
@@ -115,7 +86,7 @@ run time.
 - **WHEN** a client PUTs a scenario with malformed YAML
 - **THEN** the response is 204 (or success) and the row is updated
 
-### Requirement: Delete Scenario Cascades and Reloads Scheduler
+### Requirement: Delete Assessment Cascades and Reloads Scheduler
 The system SHALL delete the scenario row on `DELETE /api/scenarios/{id}`,
 which cascades to remove any associated schedule via the FK constraint.
 The handler SHALL trigger an in-process scheduler reload after the DB write
@@ -126,19 +97,22 @@ to evict orphaned cron entries.
 - **THEN** the schedule row is removed and the scheduler no longer fires for that scenario
 
 ### Requirement: Run Endpoint Is Asynchronous
-The system SHALL accept `POST /api/scenarios/run` with a body identifying
-either a saved scenario by ID or inline YAML, perform pre-flight setup
-(load AppConfig, packs, scenarios; build run env; parse YAML), and start the
-run in a detached goroutine. The response SHALL return HTTP 202 with
-`{runId: "<uuid>"}` once the `runs` row is inserted.
+The system SHALL start a run via `POST /api/runs` with `{assessmentId}` in the
+body, performing pre-flight setup (load AppConfig, packs, assessment; build run
+env; parse YAML) and starting the run in a detached goroutine. The response SHALL
+return HTTP 202 with `{runId: "<uuid>"}` once the `runs` row is inserted. A Run is
+a top-level resource: it is created at `POST /api/runs` and read/deleted at
+`/api/runs/{id}`. (This replaces `POST /api/scenarios/run` body `{scenarioId}` —
+the same shape with a renamed path and field. Runs always reference a saved
+assessment; there is no inline-YAML run path today.)
 
-#### Scenario: Successful run start
-- **WHEN** a client posts a valid run request for an existing scenario
+#### Scenario: Run a saved assessment
+- **WHEN** a client posts `{assessmentId}` to `/api/runs` for an existing assessment
 - **THEN** the response is HTTP 202 with a `runId`
-- **AND** a new `runs` row exists with `status = "running"`
+- **AND** a new `runs` row exists with `status = "running"` and `assessment_id` set to the posted id
 
 #### Scenario: Pre-flight failure
-- **WHEN** the request references a saved scenario that does not exist
+- **WHEN** the request references a saved assessment that does not exist
 - **THEN** the response is HTTP 400 and no `runs` row is created
 
 ### Requirement: Run Environment Construction

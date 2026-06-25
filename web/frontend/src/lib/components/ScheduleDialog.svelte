@@ -6,23 +6,23 @@
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
-	import type { SavedScenario, Schedule } from '$lib/types';
+	import type { Assessment, Schedule } from '$lib/types';
 	import {
 		createSchedule,
 		updateSchedule,
 		deleteSchedule,
-		getScheduleByScenario
+		getScheduleByAssessment
 	} from '$lib/api/client';
 	import { describeCronExpression, validateCronExpression, cronPresets } from '$lib/utils/cron';
 
 	let {
 		open = $bindable(),
-		scenario,
+		assessment,
 		onclose,
 		onsuccess
 	}: {
 		open: boolean;
-		scenario: SavedScenario;
+		assessment: Assessment;
 		onclose: () => void;
 		onsuccess: () => void;
 	} = $props();
@@ -37,7 +37,7 @@
 	let parallelism = $state(10);
 
 	$effect(() => {
-		if (open && scenario) {
+		if (open && assessment) {
 			loadSchedule();
 		}
 	});
@@ -46,7 +46,7 @@
 		loading = true;
 		error = '';
 		try {
-			const schedule = await getScheduleByScenario(scenario.id);
+			const schedule = await getScheduleByAssessment(assessment.id);
 			if (schedule) {
 				existingSchedule = schedule;
 				cronExpression = schedule.cronExpression;
@@ -78,7 +78,7 @@
 			if (existingSchedule) {
 				await updateSchedule(existingSchedule.id, cronExpression, enabled, parallelism);
 			} else {
-				await createSchedule(scenario.id, cronExpression, enabled, parallelism);
+				await createSchedule(assessment.id, cronExpression, enabled, parallelism);
 			}
 			onsuccess();
 			onclose();
@@ -116,13 +116,13 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-w-lg">
+	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>
 				{existingSchedule ? 'Edit Schedule' : 'Create Schedule'}
 			</Dialog.Title>
 			<Dialog.Description>
-				Schedule "{scenario.name}" to run automatically.
+				Schedule "{assessment.name}" to run automatically.
 			</Dialog.Description>
 		</Dialog.Header>
 

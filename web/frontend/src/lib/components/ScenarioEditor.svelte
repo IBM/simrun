@@ -29,7 +29,7 @@
 		listConnectors,
 		listElasticRulesAuto,
 		getPackManifest,
-		lintScenario
+		lintAssessment
 	} from '$lib/api/client';
 	import { scenarioTypeVariant } from '$lib/utils/format';
 	import type { Pack, PackManifest, ElasticRule, Connector, ScenarioType } from '$lib/types';
@@ -260,7 +260,7 @@
 			}
 		}
 		const yaml = currentYaml();
-		const lint = await lintScenario(yaml).catch((e) => ({
+		const lint = await lintAssessment(yaml).catch((e) => ({
 			valid: false,
 			error: e instanceof Error ? e.message : 'Lint failed'
 		}));
@@ -276,7 +276,7 @@
 			await onsave(name.trim(), yaml, opts);
 			isDirty = false;
 			if (!opts.run) {
-				toast.success(mode === 'create' ? 'Scenario created' : 'Scenario saved');
+				toast.success(mode === 'create' ? 'Assessment created' : 'Assessment saved');
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Save failed';
@@ -313,7 +313,7 @@
 	>
 		<div class="mx-auto max-w-5xl px-6 py-3 flex items-center gap-3 flex-wrap">
 			<h1 class="text-2xl font-bold whitespace-nowrap">
-				{mode === 'create' ? 'New Scenario' : 'Edit Scenario'}
+				{mode === 'create' ? 'New Assessment' : 'Edit Assessment'}
 			</h1>
 			<Badge variant={scenarioTypeVariant(type)} class="shrink-0">{type}</Badge>
 
@@ -373,7 +373,7 @@
 					</Label>
 					<Input
 						id="scenario-file-name"
-						placeholder="my-scenario"
+						placeholder="test-assessment"
 						bind:value={name}
 						oninput={markDirty}
 						class="h-9 max-w-md"

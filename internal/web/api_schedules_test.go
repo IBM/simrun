@@ -12,15 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func saveScenario(t *testing.T, ts *testserver.TS) db.SavedScenario {
+func saveScenario(t *testing.T, ts *testserver.TS) db.Assessment {
 	t.Helper()
-	resp := ts.Post(t, "/api/scenarios", web.SaveScenarioRequest{
+	resp := ts.Post(t, "/api/assessments", web.SaveAssessmentRequest{
 		Name: "scheduled scenario",
 		YAML: sampleYAML,
 	})
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	var saved db.SavedScenario
+	var saved db.Assessment
 	testserver.DecodeJSON(t, resp, &saved)
 	return saved
 }
@@ -55,7 +55,7 @@ func TestScheduleCRUD(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// GetByScenario
-	resp = ts.Get(t, "/api/scenarios/"+scenario.ID.String()+"/schedule")
+	resp = ts.Get(t, "/api/assessments/"+scenario.ID.String()+"/schedule")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Update

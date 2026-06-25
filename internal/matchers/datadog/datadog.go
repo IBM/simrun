@@ -20,12 +20,12 @@ import (
 
 const QueryAllOpenSignals = `@workflow.triage.state:open`
 
-func (m *DatadogAlertGeneratedAssertionBuilder) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
-	return m.DatadogAlertGeneratedAssertion.HasExpectedAlert(indicators, logger)
+func (m *DatadogAlertMatcherBuilder) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
+	return m.DatadogAlertMatcher.HasExpectedAlert(indicators, logger)
 }
 
-func (m *DatadogAlertGeneratedAssertionBuilder) Cleanup(indicators []string, logger *logrus.Entry) error {
-	return m.DatadogAlertGeneratedAssertion.Cleanup(indicators, logger)
+func (m *DatadogAlertMatcherBuilder) Cleanup(indicators []string, logger *logrus.Entry) error {
+	return m.DatadogAlertMatcher.Cleanup(indicators, logger)
 }
 
 const QueryOpenSignalsByAlertNameAndSeverity = `@workflow.triage.state:open @workflow.rule.name:"%s" %s`
@@ -93,7 +93,7 @@ func (m *DatadogSecuritySignalsAPIImpl) CloseSignal(id string) error {
 	return nil
 }
 
-func (m *DatadogAlertGeneratedAssertion) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
+func (m *DatadogAlertMatcher) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
 	logger = m.prepareLogger(logger)
 
 	query := m.buildDatadogSignalQuery()
@@ -108,19 +108,19 @@ func (m *DatadogAlertGeneratedAssertion) HasExpectedAlert(indicators []string, l
 	return matchingSignal != nil, nil
 }
 
-func (m *DatadogAlertGeneratedAssertion) String() string {
+func (m *DatadogAlertMatcher) String() string {
 	return fmt.Sprintf("Datadog security signal '%s'", m.AlertFilter.RuleName)
 }
 
-func (m *DatadogAlertGeneratedAssertion) MatcherName() string {
+func (m *DatadogAlertMatcher) MatcherName() string {
 	return "Datadog security signal"
 }
 
-func (m *DatadogAlertGeneratedAssertion) AlertName() string {
+func (m *DatadogAlertMatcher) AlertName() string {
 	return m.AlertFilter.RuleName
 }
 
-func (m *DatadogAlertGeneratedAssertion) Cleanup(indicators []string, logger *logrus.Entry) error {
+func (m *DatadogAlertMatcher) Cleanup(indicators []string, logger *logrus.Entry) error {
 	logger = m.prepareLogger(logger)
 
 	signals, err := m.searchSignalsWithQuery(QueryAllOpenSignals)
@@ -140,7 +140,7 @@ func (m *DatadogAlertGeneratedAssertion) Cleanup(indicators []string, logger *lo
 }
 
 // TODO: Would probably make more sense to retrieve all open signal and iterate instead of doing 2 pass
-func (m *DatadogAlertGeneratedAssertion) buildDatadogSignalQuery() string {
+func (m *DatadogAlertMatcher) buildDatadogSignalQuery() string {
 	severityQuery := ""
 	if m.AlertFilter.Severity != "" {
 		severityQuery = fmt.Sprintf(QuerySeverity, m.AlertFilter.Severity) + " "
@@ -152,7 +152,7 @@ func (m *DatadogAlertGeneratedAssertion) buildDatadogSignalQuery() string {
 	)
 }
 
-func (m *DatadogAlertGeneratedAssertion) prepareLogger(logger *logrus.Entry) *logrus.Entry {
+func (m *DatadogAlertMatcher) prepareLogger(logger *logrus.Entry) *logrus.Entry {
 	if logger == nil {
 		logger = logrus.NewEntry(logrus.StandardLogger())
 	}
@@ -162,7 +162,7 @@ func (m *DatadogAlertGeneratedAssertion) prepareLogger(logger *logrus.Entry) *lo
 	})
 }
 
-func (m *DatadogAlertGeneratedAssertion) searchSignalsWithQuery(query string) ([]datadogV2.SecurityMonitoringSignal, error) {
+func (m *DatadogAlertMatcher) searchSignalsWithQuery(query string) ([]datadogV2.SecurityMonitoringSignal, error) {
 	signals, err := m.SignalsAPI.SearchSignals(query)
 	if err != nil {
 		return nil, errors.New("unable to search for Datadog security signal: " + err.Error())
@@ -170,7 +170,7 @@ func (m *DatadogAlertGeneratedAssertion) searchSignalsWithQuery(query string) ([
 	return signals, nil
 }
 
-func (m *DatadogAlertGeneratedAssertion) findMatchingSignal(signals []datadogV2.SecurityMonitoringSignal, indicators []string, logger *logrus.Entry) *datadogV2.SecurityMonitoringSignal {
+func (m *DatadogAlertMatcher) findMatchingSignal(signals []datadogV2.SecurityMonitoringSignal, indicators []string, logger *logrus.Entry) *datadogV2.SecurityMonitoringSignal {
 	logger.WithField("signal_count", len(signals)).Info("Received signals from Datadog")
 
 	if len(signals) == 0 {
@@ -186,7 +186,7 @@ func (m *DatadogAlertGeneratedAssertion) findMatchingSignal(signals []datadogV2.
 	return nil
 }
 
-func (m *DatadogAlertGeneratedAssertion) signalMatchesExecution(signal datadogV2.SecurityMonitoringSignal, indicators []string, logger *logrus.Entry) bool {
+func (m *DatadogAlertMatcher) signalMatchesExecution(signal datadogV2.SecurityMonitoringSignal, indicators []string, logger *logrus.Entry) bool {
 	buf, _ := json.Marshal(signal.Attributes.Custom)
 	rawSignal := strings.ToLower(string(buf))
 

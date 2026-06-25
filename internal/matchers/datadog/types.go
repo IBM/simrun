@@ -15,14 +15,14 @@ type DatadogAlertFilter struct {
 	// There might be other attributes in the future
 }
 
-type DatadogAlertGeneratedAssertion struct {
+type DatadogAlertMatcher struct {
 	SignalsAPI  DatadogSecuritySignalsAPI
 	AlertFilter *DatadogAlertFilter
 }
 
 // builder
-type DatadogAlertGeneratedAssertionBuilder struct {
-	DatadogAlertGeneratedAssertion
+type DatadogAlertMatcherBuilder struct {
+	DatadogAlertMatcher
 }
 
 // getEnvWithFallback returns the value of the primary env var, or falls back to legacy
@@ -48,8 +48,8 @@ func getDDSite(envVars map[string]string) string {
 
 // DatadogSecuritySignal creates a new Datadog security signal matcher.
 // envVars provides run-specific env vars; pass nil to read from process env (CLI path).
-func DatadogSecuritySignal(name string, envVars map[string]string) *DatadogAlertGeneratedAssertionBuilder {
-	builder := &DatadogAlertGeneratedAssertionBuilder{}
+func DatadogSecuritySignal(name string, envVars map[string]string) *DatadogAlertMatcherBuilder {
+	builder := &DatadogAlertMatcherBuilder{}
 	ddApiKey := getEnvWithFallback(envVars, "SR_DATADOG_API_KEY", "DD_API_KEY")
 	ddAppKey := getEnvWithFallback(envVars, "SR_DATADOG_APP_KEY", "DD_APP_KEY")
 	ctx := context.WithValue(context.Background(), datadog.ContextAPIKeys, map[string]datadog.APIKey{
@@ -70,7 +70,7 @@ func DatadogSecuritySignal(name string, envVars map[string]string) *DatadogAlert
 	return builder
 }
 
-func (m *DatadogAlertGeneratedAssertionBuilder) WithSeverity(severity string) *DatadogAlertGeneratedAssertionBuilder {
+func (m *DatadogAlertMatcherBuilder) WithSeverity(severity string) *DatadogAlertMatcherBuilder {
 	m.AlertFilter.Severity = severity
 	return m
 }

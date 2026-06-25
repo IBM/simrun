@@ -113,7 +113,7 @@ func (m *ElasticSecurityDetectionAlertsAPIImpl) CloseAlert(id string) error {
 // getAPI returns the API client, lazily initializing it if needed.
 // This allows matchers to be created without credentials (for lint),
 // with credential validation deferred until the API is actually used.
-func (m *ElasticSecurityAlertGeneratedAssertion) getAPI() (ElasticSecurityDetectionAlertsAPI, error) {
+func (m *ElasticSecurityAlertMatcher) getAPI() (ElasticSecurityDetectionAlertsAPI, error) {
 	if m.AlertsAPI != nil {
 		return m.AlertsAPI, nil
 	}
@@ -135,7 +135,7 @@ func (m *ElasticSecurityAlertGeneratedAssertion) getAPI() (ElasticSecurityDetect
 	return m.AlertsAPI, nil
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
+func (m *ElasticSecurityAlertMatcher) HasExpectedAlert(indicators []string, logger *logrus.Entry) (bool, error) {
 	logger = m.prepareLogger(logger)
 
 	alerts, err := m.searchAndMatch(indicators, logger)
@@ -146,19 +146,19 @@ func (m *ElasticSecurityAlertGeneratedAssertion) HasExpectedAlert(indicators []s
 	return alerts != nil, nil
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) String() string {
+func (m *ElasticSecurityAlertMatcher) String() string {
 	return fmt.Sprintf("Elastic Security alert '%s'", m.AlertFilter.RuleName)
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) MatcherName() string {
+func (m *ElasticSecurityAlertMatcher) MatcherName() string {
 	return "Elastic Security alert"
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) AlertName() string {
+func (m *ElasticSecurityAlertMatcher) AlertName() string {
 	return m.AlertFilter.RuleName
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) Cleanup(indicators []string, logger *logrus.Entry) error {
+func (m *ElasticSecurityAlertMatcher) Cleanup(indicators []string, logger *logrus.Entry) error {
 	logger = m.prepareLogger(logger)
 
 	matchingAlerts, err := m.searchAndMatch(indicators, logger)
@@ -185,7 +185,7 @@ func (m *ElasticSecurityAlertGeneratedAssertion) Cleanup(indicators []string, lo
 	return nil
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) buildElasticAlertQuery() string {
+func (m *ElasticSecurityAlertMatcher) buildElasticAlertQuery() string {
 	type queryStruct struct {
 		Size  int                      `json:"size"`
 		Query map[string]interface{}   `json:"query"`
@@ -225,17 +225,17 @@ func (m *ElasticSecurityAlertGeneratedAssertion) buildElasticAlertQuery() string
 	return string(queryBytes)
 }
 
-// sinceValue returns the timestamp filter value for the assertion query.
+// sinceValue returns the timestamp filter value for the matcher query.
 // Uses the configured since time if set, otherwise falls back to "now-10h"
 // for backward compatibility with CLI usage where start time isn't tracked.
-func (m *ElasticSecurityAlertGeneratedAssertion) sinceValue() string {
+func (m *ElasticSecurityAlertMatcher) sinceValue() string {
 	if m.since.IsZero() {
 		return "now-15m"
 	}
 	return m.since.UTC().Format(time.RFC3339)
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) prepareLogger(logger *logrus.Entry) *logrus.Entry {
+func (m *ElasticSecurityAlertMatcher) prepareLogger(logger *logrus.Entry) *logrus.Entry {
 	if logger == nil {
 		logger = logrus.NewEntry(logrus.StandardLogger())
 	}
@@ -245,7 +245,7 @@ func (m *ElasticSecurityAlertGeneratedAssertion) prepareLogger(logger *logrus.En
 	})
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) searchAndMatch(indicators []string, logger *logrus.Entry) ([]ElasticSecurityDetectionAlert, error) {
+func (m *ElasticSecurityAlertMatcher) searchAndMatch(indicators []string, logger *logrus.Entry) ([]ElasticSecurityDetectionAlert, error) {
 	api, err := m.getAPI()
 	if err != nil {
 		return nil, err
@@ -396,7 +396,7 @@ func extractAlertField(alert ElasticSecurityDetectionAlert, field string) (strin
 	return "", false
 }
 
-func (m *ElasticSecurityAlertGeneratedAssertion) alertMatchesExecution(alert ElasticSecurityDetectionAlert, indicators []string, logger *logrus.Entry) bool {
+func (m *ElasticSecurityAlertMatcher) alertMatchesExecution(alert ElasticSecurityDetectionAlert, indicators []string, logger *logrus.Entry) bool {
 	matched := alertMatchesIndicators(alert, indicators)
 	if matched {
 		logger.WithField("alert_id", alert.ID).Debug("Found matching alert based on provided indicators")
