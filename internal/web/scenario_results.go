@@ -102,7 +102,7 @@ func buildScenarioResultRow(runID uuid.UUID, result *runner.ScenarioResult) *db.
 	// A scenario errored (vs. cleanly missing an expectation) when it failed
 	// without producing per-expectation results: warmup/detonation failures and
 	// matching-infrastructure errors leave UnmetExpectations nil.
-	errored := !result.Success && len(result.UnmetExpectations) == 0
+	errored := !result.Success && result.UnmetExpectations == nil
 	return &db.ScenarioResult{
 		RunID:             runID,
 		Name:              result.Name,

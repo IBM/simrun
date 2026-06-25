@@ -10,16 +10,16 @@ and use standard Unix cron expressions.
 
 ### Requirement: Schedule Resource
 The system SHALL persist schedules in the `schedules` table with fields:
-`id` (UUID), `scenario_id` (UUID, unique, FK to `saved_scenarios.id`,
+`id` (UUID), `assessment_id` (UUID, unique, FK to `assessments.id`,
 `ON DELETE CASCADE`), `cron_expression`, `enabled` (default true),
 `parallelism`, `last_run_at` (nullable), `created_at`, `updated_at`.
 
-#### Scenario: One schedule per scenario
-- **WHEN** a scenario already has a schedule and a client posts a second `POST /api/schedules` for the same `scenario_id`
-- **THEN** the response is HTTP 409 with `"schedule already exists for this scenario"`
+#### Scenario: One schedule per assessment
+- **WHEN** an assessment already has a schedule and a client posts a second `POST /api/schedules` for the same `assessmentId`
+- **THEN** the response is HTTP 409 with `"schedule already exists for this assessment"`
 
-#### Scenario: Cascade on scenario delete
-- **WHEN** a saved scenario is deleted
+#### Scenario: Cascade on assessment delete
+- **WHEN** an assessment is deleted
 - **THEN** its schedule row is removed atomically by the database
 
 ### Requirement: Cron Expression Format
@@ -106,16 +106,16 @@ implementation.
 - **WHEN** a schedule is created with `parallelism: 0`
 - **THEN** the persisted row has `parallelism = 10`
 
-### Requirement: Get Schedule by Scenario
-`GET /api/scenarios/{scenarioId}/schedule` SHALL return the schedule row for
-the given scenario, or HTTP 404 if no schedule exists.
+### Requirement: Get Schedule by Assessment
+`GET /api/assessments/{id}/schedule` SHALL return the schedule row for
+the given assessment, or HTTP 404 if no schedule exists.
 
 #### Scenario: Schedule exists
-- **WHEN** scenario `S` has a schedule and a client requests `/api/scenarios/<S>/schedule`
+- **WHEN** assessment `A` has a schedule and a client requests `/api/assessments/<A>/schedule`
 - **THEN** the response is 200 with the schedule object
 
 #### Scenario: No schedule
-- **WHEN** scenario `S` has no schedule
+- **WHEN** assessment `A` has no schedule
 - **THEN** the response is HTTP 404
 
 ### Requirement: Listing Schedules

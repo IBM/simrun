@@ -147,7 +147,7 @@
 		const schedules = await listSchedules();
 		const map = new Map<string, Schedule>();
 		for (const schedule of schedules) {
-			map.set(schedule.scenarioId, schedule);
+			map.set(schedule.assessmentId, schedule);
 		}
 		scheduleMap = map;
 	}

@@ -60,7 +60,7 @@ The system SHALL serve `GET /api/assessments` as a paginated, filterable list
 ordered by `updated_at DESC`, returning `{assessments, total, page, perPage}`
 where `assessments` is the page slice (possibly empty, never `null`). The system
 SHALL additionally serve a single assessment by its unique name via
-`GET /api/assessments/{name}`, returning its JSON (which already includes the
+`GET /api/assessments/by-name/{name}`, returning its JSON (which already includes the
 raw `yaml` field). Query parameters (`page`, `per_page`, `name`, `type`, `since`)
 behave as before against `assessments.name`/`.type`.
 
@@ -69,7 +69,7 @@ behave as before against `assessments.name`/`.type`.
 - **THEN** the response is HTTP 200 with `{assessments, total, page: 1, perPage: 50}` ordered with the most recently updated assessment first
 
 #### Scenario: Fetch by name
-- **WHEN** a client requests `/api/assessments/aws-privesc`
+- **WHEN** a client requests `/api/assessments/by-name/aws-privesc`
 - **THEN** the response is the JSON for the assessment named `aws-privesc`, including its raw `yaml` field
 
 #### Scenario: Invalid type rejected

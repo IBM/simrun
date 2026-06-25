@@ -10,9 +10,9 @@ import (
 
 // ScheduleStore manages schedule persistence.
 type ScheduleStore interface {
-	Create(ctx context.Context, scenarioID uuid.UUID, cronExpr string, enabled bool, parallelism int, createdBy string) (*Schedule, error)
+	Create(ctx context.Context, assessmentID uuid.UUID, cronExpr string, enabled bool, parallelism int, createdBy string) (*Schedule, error)
 	Get(ctx context.Context, id uuid.UUID) (*Schedule, error)
-	GetByScenarioID(ctx context.Context, scenarioID uuid.UUID) (*Schedule, error)
+	GetByAssessmentID(ctx context.Context, assessmentID uuid.UUID) (*Schedule, error)
 	List(ctx context.Context) ([]Schedule, error)
 	ListEnabled(ctx context.Context) ([]Schedule, error)
 	Update(ctx context.Context, id uuid.UUID, cronExpr string, enabled bool, parallelism int, updatedBy string) error
@@ -20,10 +20,10 @@ type ScheduleStore interface {
 	UpdateLastRun(ctx context.Context, id uuid.UUID, lastRunAt time.Time) error
 }
 
-// Schedule represents a cron schedule for a saved scenario.
+// Schedule represents a cron schedule for an assessment.
 type Schedule struct {
 	ID             uuid.UUID  `json:"id"`
-	ScenarioID     uuid.UUID  `json:"scenarioId"`
+	AssessmentID   uuid.UUID  `json:"assessmentId"`
 	CronExpression string     `json:"cronExpression"`
 	Enabled        bool       `json:"enabled"`
 	Parallelism    int        `json:"parallelism"`
@@ -43,14 +43,14 @@ func NewScheduleStore(pool *pgxpool.Pool) ScheduleStore {
 	return &scheduleStore{pool: pool}
 }
 
-func (s *scheduleStore) Create(ctx context.Context, scenarioID uuid.UUID, cronExpr string, enabled bool, parallelism int, createdBy string) (*Schedule, error) {
+func (s *scheduleStore) Create(ctx context.Context, assessmentID uuid.UUID, cronExpr string, enabled bool, parallelism int, createdBy string) (*Schedule, error) {
 	var sch Schedule
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO schedules (scenario_id, cron_expression, enabled, parallelism, created_by, updated_by)
+		`INSERT INTO schedules (assessment_id, cron_expression, enabled, parallelism, created_by, updated_by)
 		 VALUES ($1, $2, $3, $4, $5, $5)
-		 RETURNING id, scenario_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at`,
-		scenarioID, cronExpr, enabled, parallelism, createdBy,
-	).Scan(&sch.ID, &sch.ScenarioID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt)
+		 RETURNING id, assessment_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at`,
+		assessmentID, cronExpr, enabled, parallelism, createdBy,
+	).Scan(&sch.ID, &sch.AssessmentID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -60,21 +60,21 @@ func (s *scheduleStore) Create(ctx context.Context, scenarioID uuid.UUID, cronEx
 func (s *scheduleStore) Get(ctx context.Context, id uuid.UUID) (*Schedule, error) {
 	var sch Schedule
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, scenario_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
+		`SELECT id, assessment_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
 		 FROM schedules WHERE id = $1`, id,
-	).Scan(&sch.ID, &sch.ScenarioID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt)
+	).Scan(&sch.ID, &sch.AssessmentID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &sch, nil
 }
 
-func (s *scheduleStore) GetByScenarioID(ctx context.Context, scenarioID uuid.UUID) (*Schedule, error) {
+func (s *scheduleStore) GetByAssessmentID(ctx context.Context, assessmentID uuid.UUID) (*Schedule, error) {
 	var sch Schedule
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, scenario_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
-		 FROM schedules WHERE scenario_id = $1`, scenarioID,
-	).Scan(&sch.ID, &sch.ScenarioID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt)
+		`SELECT id, assessment_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
+		 FROM schedules WHERE assessment_id = $1`, assessmentID,
+	).Scan(&sch.ID, &sch.AssessmentID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (s *scheduleStore) GetByScenarioID(ctx context.Context, scenarioID uuid.UUI
 
 func (s *scheduleStore) List(ctx context.Context) ([]Schedule, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, scenario_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
+		`SELECT id, assessment_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
 		 FROM schedules ORDER BY created_at DESC`,
 	)
 	if err != nil {
@@ -94,7 +94,7 @@ func (s *scheduleStore) List(ctx context.Context) ([]Schedule, error) {
 	schedules := []Schedule{}
 	for rows.Next() {
 		var sch Schedule
-		if err := rows.Scan(&sch.ID, &sch.ScenarioID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt); err != nil {
+		if err := rows.Scan(&sch.ID, &sch.AssessmentID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt); err != nil {
 			return nil, err
 		}
 		schedules = append(schedules, sch)
@@ -104,7 +104,7 @@ func (s *scheduleStore) List(ctx context.Context) ([]Schedule, error) {
 
 func (s *scheduleStore) ListEnabled(ctx context.Context) ([]Schedule, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, scenario_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
+		`SELECT id, assessment_id, cron_expression, enabled, parallelism, last_run_at, created_by, updated_by, created_at, updated_at
 		 FROM schedules WHERE enabled = true ORDER BY created_at DESC`,
 	)
 	if err != nil {
@@ -115,7 +115,7 @@ func (s *scheduleStore) ListEnabled(ctx context.Context) ([]Schedule, error) {
 	schedules := []Schedule{}
 	for rows.Next() {
 		var sch Schedule
-		if err := rows.Scan(&sch.ID, &sch.ScenarioID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt); err != nil {
+		if err := rows.Scan(&sch.ID, &sch.AssessmentID, &sch.CronExpression, &sch.Enabled, &sch.Parallelism, &sch.LastRunAt, &sch.CreatedBy, &sch.UpdatedBy, &sch.CreatedAt, &sch.UpdatedAt); err != nil {
 			return nil, err
 		}
 		schedules = append(schedules, sch)

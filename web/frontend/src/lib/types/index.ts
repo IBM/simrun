@@ -148,7 +148,7 @@ export interface SecretEntryInput {
 // Schedule types
 export interface Schedule {
 	id: string;
-	scenarioId: string;
+	assessmentId: string;
 	cronExpression: string;
 	enabled: boolean;
 	parallelism: number;

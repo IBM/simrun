@@ -93,7 +93,7 @@ type SecretGroupResponse struct {
 // Schedule request types
 
 type CreateScheduleRequest struct {
-	ScenarioID     string `json:"scenarioId"`
+	AssessmentID   string `json:"assessmentId"`
 	CronExpression string `json:"cronExpression"`
 	Enabled        bool   `json:"enabled"`
 	Parallelism    int    `json:"parallelism,omitempty"`

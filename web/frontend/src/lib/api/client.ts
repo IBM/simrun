@@ -305,14 +305,14 @@ export async function getScheduleByAssessment(assessmentId: string): Promise<Sch
 }
 
 export async function createSchedule(
-	scenarioId: string,
+	assessmentId: string,
 	cronExpression: string,
 	enabled: boolean,
 	parallelism: number
 ): Promise<Schedule> {
 	return request('/schedules', {
 		method: 'POST',
-		body: JSON.stringify({ scenarioId, cronExpression, enabled, parallelism })
+		body: JSON.stringify({ assessmentId, cronExpression, enabled, parallelism })
 	});
 }
 

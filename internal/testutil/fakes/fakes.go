@@ -818,13 +818,13 @@ type ScheduleStore struct {
 
 var _ db.ScheduleStore = (*ScheduleStore)(nil)
 
-func (s *ScheduleStore) Create(_ context.Context, scenarioID uuid.UUID, cronExpr string, enabled bool, parallelism int, createdBy string) (*db.Schedule, error) {
+func (s *ScheduleStore) Create(_ context.Context, assessmentID uuid.UUID, cronExpr string, enabled bool, parallelism int, createdBy string) (*db.Schedule, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
 	sched := &db.Schedule{
 		ID:             uuid.New(),
-		ScenarioID:     scenarioID,
+		AssessmentID:   assessmentID,
 		CronExpression: cronExpr,
 		Enabled:        enabled,
 		Parallelism:    parallelism,
@@ -849,11 +849,11 @@ func (s *ScheduleStore) Get(_ context.Context, id uuid.UUID) (*db.Schedule, erro
 	return &cp, nil
 }
 
-func (s *ScheduleStore) GetByScenarioID(_ context.Context, scenarioID uuid.UUID) (*db.Schedule, error) {
+func (s *ScheduleStore) GetByAssessmentID(_ context.Context, assessmentID uuid.UUID) (*db.Schedule, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, sched := range s.schedules {
-		if sched.ScenarioID == scenarioID {
+		if sched.AssessmentID == assessmentID {
 			cp := *sched
 			return &cp, nil
 		}

@@ -98,22 +98,22 @@ func (s *Scheduler) loadSchedules() error {
 // addSchedule registers a single schedule as a cron job.
 func (s *Scheduler) addSchedule(schedule db.Schedule) error {
 	scheduleID := schedule.ID
-	scenarioID := schedule.ScenarioID
+	assessmentID := schedule.AssessmentID
 
 	_, err := s.cron.AddFunc(schedule.CronExpression, func() {
-		s.executeSchedule(scheduleID, scenarioID)
+		s.executeSchedule(scheduleID, assessmentID)
 	})
 
 	return err
 }
 
 // executeSchedule runs when a cron job fires.
-func (s *Scheduler) executeSchedule(scheduleID, scenarioID uuid.UUID) {
+func (s *Scheduler) executeSchedule(scheduleID, assessmentID uuid.UUID) {
 	logger := log.WithFields(log.Fields{
-		"scheduleId": scheduleID,
-		"scenarioId": scenarioID,
+		"scheduleId":   scheduleID,
+		"assessmentId": assessmentID,
 	})
-	logger.Info("Executing scheduled scenario")
+	logger.Info("Executing scheduled assessment")
 
 	// Use context.Background() so in-progress runs are not cancelled when the scheduler stops.
 	ctx := context.Background()
@@ -124,22 +124,22 @@ func (s *Scheduler) executeSchedule(scheduleID, scenarioID uuid.UUID) {
 		return
 	}
 
-	scenario, err := s.assessmentStore.Get(ctx, scenarioID)
+	assessment, err := s.assessmentStore.Get(ctx, assessmentID)
 	if err != nil {
-		logger.WithError(err).Error("Failed to load scenario for scheduled run")
+		logger.WithError(err).Error("Failed to load assessment for scheduled run")
 		return
 	}
 
-	scheduleName := scenario.Name + " (scheduled)"
+	scheduleName := assessment.Name + " (scheduled)"
 
-	_, err = s.scenarioService.Run(ctx, scenarioID, &RunOptions{
+	_, err = s.scenarioService.Run(ctx, assessmentID, &RunOptions{
 		Parallelism:  schedule.Parallelism,
 		ScheduleID:   &scheduleID,
 		ScheduleName: &scheduleName,
 		CreatedBy:    "system",
 	})
 	if err != nil {
-		logger.WithError(err).Error("Failed to execute scheduled scenario")
+		logger.WithError(err).Error("Failed to execute scheduled assessment")
 		return
 	}
 
