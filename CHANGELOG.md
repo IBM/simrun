@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/IBM/simrun/compare/v0.4.0...v0.4.1) (2026-06-25)
+
+
+### Bug Fixes
+
+* **ci:** remove experimental environment variable from signing step ([#18](https://github.com/IBM/simrun/issues/18)) ([2a986f5](https://github.com/IBM/simrun/commit/2a986f5dc89e05980a98dbb73d5ff1927b6bb795))
+
 ## [0.4.0](https://github.com/IBM/simrun/compare/v0.3.0...v0.4.0) (2026-06-25)
 
 
