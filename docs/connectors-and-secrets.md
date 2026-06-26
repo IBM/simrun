@@ -28,7 +28,7 @@ The `elastic` connector type points SimRun at an Elastic Security deployment. It
 
 **Secret group:** Link a secret group that contains `SR_ELASTIC_API_KEY` (the Elasticsearch API key used for all Kibana and Elasticsearch calls).
 
-The Elastic connector is also used as the default SIEM when no target overrides are specified. Only one Elastic connector can be marked as default at a time.
+When no target overrides are specified, SimRun uses the first enabled Elastic connector as the active SIEM connection.
 
 ### Datadog
 
@@ -78,8 +78,6 @@ The `gcp` connector resolves credentials for Terraform simulations that target G
 
 **Secret group:** For legacy auth, store `SR_GCP_CREDENTIALS` (inline service account JSON).
 
-Connection testing is only supported for `auth_type: workload_identity_federation`.
-
 ### Azure
 
 The `azure` connector resolves credentials for Terraform simulations that target Azure.
@@ -95,8 +93,6 @@ The `azure` connector resolves credentials for Terraform simulations that target
 | `token_file` | OIDC token file path (WIF only; defaults to the EKS IRSA path). |
 
 **Secret group:** For legacy auth, store `ARM_CLIENT_SECRET` (the service principal client secret).
-
-Connection testing is only supported for `auth_type: workload_identity_federation`.
 
 ## Other connectors
 
