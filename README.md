@@ -51,7 +51,7 @@ Read more → [docs/concepts.md](docs/concepts.md)
 - [Connectors & Secrets](docs/connectors-and-secrets.md) — SIEM and cloud integrations
 - [Packs](docs/packs.md) — simulation packs: install, configure, author
 - [Configuration](docs/configuration.md) — environment variables reference
-- [Deployment](docs/deployment.md) — Docker, Docker Compose, production notes
+- [Deployment](docs/deployment.md) — Docker, production notes, OAuth setup
 
 ## Development
 

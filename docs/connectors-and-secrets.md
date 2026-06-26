@@ -114,7 +114,7 @@ The `kubernetes` connector resolves a kubeconfig for simulations that run Kubern
 
 ### SSH
 
-The `ssh` connector is used by the Simrun detonator to execute Terraform simulations on a remote host over SSH.
+The `ssh` connector is used by the SimRun detonator to execute Terraform simulations on a remote host over SSH.
 
 **Config fields:**
 

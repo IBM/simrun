@@ -36,5 +36,5 @@ Confirmed fields include:
 
 ## See also
 
-- [deployment.md](deployment.md) — production deploy checklist, OAuth setup, Docker Compose
+- [deployment.md](deployment.md) — production deploy checklist, OAuth setup, Docker
 - [getting-started.md](getting-started.md) — build SimRun and reach the dashboard for the first time

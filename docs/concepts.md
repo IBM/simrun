@@ -23,7 +23,7 @@ An Assessment defines scenarios. Running it creates a Run. The run executes each
 
 Detonators execute the attack simulation.
 
-**Simrun detonator** — runs a pack simulation using Terraform. The pack can execute locally (on the SimRun host) or over SSH on a remote target. This is the primary detonation method and requires a pack to be installed.
+**SimRun detonator** — runs a pack simulation using Terraform. The pack can execute locally (on the SimRun host) or over SSH on a remote target. This is the primary detonation method and requires a pack to be installed.
 
 **AWS CLI detonator** — runs one or more AWS CLI commands directly. No pack or Terraform required; useful for lightweight, API-level attack simulations against AWS.
 
@@ -64,7 +64,7 @@ When the UUID cannot be reflected into the activity (for example, in a managed A
 
 **Connectors** point SimRun at an external platform — Elastic, Datadog, AWS, GCP, Azure, Kubernetes, or SSH. Each connector stores the endpoint and non-secret configuration needed to reach that platform. Connectors are managed on the Connectors page (`/connectors`). See [connectors-and-secrets.md](connectors-and-secrets.md) for setup.
 
-**Secret groups** hold the credentials (API keys, passwords, certificates) that a connector uses. A connector links to exactly one secret group. Secrets are managed on the Secrets page (`/secrets`) and are never returned in plaintext after saving.
+**Secret groups** hold the credentials (API keys, passwords, certificates) that a connector uses. A connector links to at most one secret group. Secrets are managed on the Secrets page (`/secrets`) and are never returned in plaintext after saving.
 
 ## See also
 

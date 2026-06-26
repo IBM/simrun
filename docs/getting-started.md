@@ -12,7 +12,7 @@ Install SimRun and reach the dashboard.
 Clone the repository, then run:
 
 ```bash
-mise build
+mise run build
 ```
 
 This builds the SvelteKit frontend and compiles the `simrun` binary, placing it at `dist/simrun`.
