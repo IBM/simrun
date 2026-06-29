@@ -1,13 +1,19 @@
-# SimRun
+<p align="center">
+  <img src="docs/assets/simrun-icon-rounded.png" alt="SimRun" width="120">
+</p>
 
-<!-- logo: snake glyph + wordmark, added in a later pass -->
+<h1 align="center">SimRun</h1>
 
-An Attack Simulation Platform for detection testing — detonate attacks, verify the alerts fire.
+<p align="center">
+  An Attack Simulation Platform (ASP) for detection testing — detonate attacks, verify the alerts fire.
+</p>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/IBM/simrun)](https://github.com/IBM/simrun/releases)
-[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![Docker](https://github.com/IBM/simrun/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/IBM/simrun/actions/workflows/docker-publish.yml)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/IBM/simrun/releases"><img src="https://img.shields.io/github/v/release/IBM/simrun" alt="Release"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" alt="Go"></a>
+  <a href="https://github.com/IBM/simrun/actions/workflows/docker-publish.yml"><img src="https://github.com/IBM/simrun/actions/workflows/docker-publish.yml/badge.svg" alt="Docker"></a>
+</p>
 
 ## What is SimRun
 
