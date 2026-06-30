@@ -30,19 +30,6 @@ The `elastic` connector type points SimRun at an Elastic Security deployment. It
 
 When no target overrides are specified, SimRun uses the first enabled Elastic connector as the active SIEM connection.
 
-### Datadog
-
-The `datadog` connector type is used by the Datadog security signal matcher to poll for expected signals after detonation.
-
-Datadog credentials are supplied via environment variables (or a linked secret group that injects them into the environment). The matcher resolves them in this order, checking both SimRun-namespaced and native Datadog variable names:
-
-| Purpose | Env var (preferred) | Env var (fallback) |
-|---|---|---|
-| API key | `SR_DATADOG_API_KEY` | `DD_API_KEY` |
-| Application key | `SR_DATADOG_APP_KEY` | `DD_APP_KEY` |
-| Site | `SR_DATADOG_SITE` | `DD_SITE` (default: `datadoghq.com`) |
-
-There is no Datadog-specific connector config form; create a connector of type `datadog`, link a secret group that contains the keys above, and SimRun will inject them at run time.
 
 ## Cloud connectors
 
@@ -115,6 +102,8 @@ The `kubernetes` connector resolves a kubeconfig for simulations that run Kubern
 ### SSH
 
 The `ssh` connector is used by the SimRun detonator to execute Terraform simulations on a remote host over SSH.
+
+> ⚠️ **Not yet in the UI.** The SSH connector is hidden from the connector picker while its consumption path is finalised, so it can't be created from the Connectors page yet. SSH-based detonation isn't configurable through the UI in the meantime.
 
 **Config fields:**
 

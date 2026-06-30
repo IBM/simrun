@@ -22,6 +22,8 @@ Start with **Getting Started** to install SimRun, then read **Concepts** to unde
 
 - **[Packs](packs.md)** — Install and manage external attack simulation bundles and tune their parameters.
 
+- **[Ecosystem](ecosystem.md)** — The pack ecosystem, the maintained satellite packs, and how to write your own.
+
 - **[Configuration](configuration.md)** — All deploy-time environment variables and operational defaults.
 
 - **[Deployment](deployment.md)** — Run SimRun in production with Docker and optional Google OAuth.

@@ -4,10 +4,10 @@ Run SimRun in production with Docker and optional auth.
 
 ## Docker
 
-Build the image from the repository root:
+Pull the image or build it from the repository root:
 
 ```bash
-docker build -t simrun .
+docker pull ghcr.io/ibm/simrun:latest
 ```
 
 Run the container, mounting a volume so state persists across restarts:
@@ -16,7 +16,7 @@ Run the container, mounting a volume so state persists across restarts:
 docker run -p 8080:8080 \
   -e SR_DATABASE_URL="postgres://..." \
   -v simrun-data:/home/nonroot/.simrun \
-  simrun
+  ghcr.io/ibm/simrun
 ```
 
 The image bundles `aws`, `gcloud`, and `az` CLIs — the tools used by detonators when executing cloud attack simulations.

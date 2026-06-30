@@ -19,8 +19,6 @@ You'll need:
 
 Navigate to http://localhost:8080. The Dashboard gives an at-a-glance view of recent runs and scenario pass/fail rates.
 
-![Dashboard](images/dashboard.png)
-
 ---
 
 ## Step 2 — Add connectors and secrets
@@ -39,12 +37,9 @@ SimRun needs to know where your SIEM is and how to reach AWS. Both are configure
 
 1. Still on **Connectors**, click **Add connector**, choose type `aws`.
 2. If you're using role assumption, enter the `role_arn`.
-3. Under **Secret group**, create a group and add `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and (if needed) `SR_AWS_EXTERNAL_ID`.
-4. Note the connector name — you'll reference it in the assessment.
+3. (if not using a role) Under **Secret group**, create a group and add `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 
 See [connectors-and-secrets.md](connectors-and-secrets.md) for the full field reference.
-
-![Connectors](images/connectors.png)
 
 ---
 
@@ -52,14 +47,12 @@ See [connectors-and-secrets.md](connectors-and-secrets.md) for the full field re
 
 A pack bundles the Terraform modules and scenario definitions for a set of simulations.
 
-1. Go to **Packs** (`/packs`).
-2. Enter the pack name (e.g. `simrun-base-pack`) and its source URL.
-3. Click **Install**. SimRun downloads the pack, validates its manifest, and lists the available simulations.
-4. Optionally set pack-level parameters — for example, set `aws_region` to `us-east-1` so every simulation in the pack targets that region by default.
+1. Go to **Packs** (`/packs`) and start a new install.
+2. Choose **Remote** and enter the pack name (e.g. `simrun-base-pack`) and its source. (The **Upload** tab installs a pack binary you built locally — handy when developing your own simulations.)
+3. Click **Install**. SimRun fetches the pack, validates its manifest, and lists the available simulations.
+4. Optionally set pack-level parameters — for example, set `aws_region` to `us-east-2` so every simulation in the pack targets that region by default.
 
-See [packs.md](packs.md) for parameter details.
-
-![Packs](images/packs.png)
+See [packs.md](packs.md) for both install methods and parameter details.
 
 ---
 
@@ -68,7 +61,7 @@ See [packs.md](packs.md) for parameter details.
 An assessment is a saved definition of scenarios. You'll create one with a single scenario that detonates a pack simulation and expects an Elastic Security alert.
 
 1. Go to **Assessments** (`/assessments`) and click **New assessment**.
-2. Give it a name and paste or write the scenario YAML. A minimal example:
+2. Give it a name, then define the scenario. The editor opens in **Builder** mode, where you add detonators and expectations with forms — or switch to **YAML** mode to write or paste it directly. Either way, here's the YAML this scenario produces:
 
 ```yaml
 targets:
@@ -79,7 +72,7 @@ scenarios:
     detonate:
       simrunDetonator:
         pack: simrun-base-pack
-        simulation: s3-disable-public-access-block
+        simulation: aws.s3-disable-public-access-block
     expectations:
       - elasticSecurityAlert:
           name: "S3 Public Access Block Disabled"
@@ -92,8 +85,6 @@ Key points:
 
 See [scenarios.md](scenarios.md) for the full YAML reference.
 
-![New assessment](images/assessment-new.png)
-
 ---
 
 ## Step 5 — Run it
@@ -103,21 +94,15 @@ Click **Run** on the assessment. SimRun creates a new Run and begins executing s
 - Each scenario detonates the simulation, then polls Kibana for the expected alert.
 - The run page updates in real time as scenarios complete.
 
-![Run in progress](images/run.png)
-
 ---
 
-## Step 6 — Read the results
-
-Open the run from the **Runs** page (`/runs`) or directly via the link shown after starting the run.
+## Step 6 — Wait for the results
 
 Each scenario shows one of:
 - **Matched** — the expectation fired; the expected alert was found in Kibana within the timeout.
-- **Unmatched** — the alert was not found before the timeout expired. Check whether the rule is enabled in Kibana and that the simulation actually ran (look at the collected logs if `collect` is configured).
+- **Unmatched** — the alert was not found before the timeout expired. Check whether the rule is enabled in Kibana and that the simulation actually ran.
 
 If you added a `collect` block to your scenario, the related Elasticsearch logs are shown alongside the results for post-hoc analysis.
-
-![Run results](images/run-results.png)
 
 ---
 

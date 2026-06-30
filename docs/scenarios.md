@@ -2,6 +2,8 @@
 
 The YAML shape behind every assessment.
 
+> You don't have to write this by hand. The assessment editor has a visual **Builder** mode — add scenarios, detonators, and expectations with forms — and a **YAML** mode you can toggle to at any time.
+
 ---
 
 ## Top-level structure
@@ -10,15 +12,12 @@ A scenario file has three top-level keys. Only `scenarios` is required.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `metadata` | object | No | Human-readable name and description for the file. |
-| `metadata.name` | string | No | Name of the scenarios set. |
-| `metadata.description` | string | No | Description of the scenarios set. |
-| `targets` | object | No | Connector names for each cloud/infrastructure target used by all scenarios in this file. |
+| `targets` | object | Yes | Connector names for each cloud/infrastructure target used by all scenarios in this file. |
 | `targets.aws` | string | No | Name of the AWS connector to use for cloud credentials. |
 | `targets.gcp` | string | No | Name of the GCP connector to use for cloud credentials. |
 | `targets.azure` | string | No | Name of the Azure connector to use for cloud credentials. |
 | `targets.kubernetes` | string | No | Name of the Kubernetes connector to use for cluster access. |
-| `targets.ssh` | string | No | Name of the SSH connector to use for remote command detonation. |
+| `targets.ssh` | string | No | Name of the SSH connector to use for remote command detonation. _(The SSH connector is not yet configurable in the UI — see [connectors-and-secrets.md](connectors-and-secrets.md#ssh).)_ |
 | `scenarios` | array | **Yes** | List of scenario objects (see below). |
 
 ---
@@ -43,27 +42,8 @@ Each item in `scenarios` describes one unit of work: how to trigger activity and
 
 ## Detonators
 
-A `detonate` block must contain exactly one of `awsCliDetonator` or `simrunDetonator`.
+A `detonate` block must contain exactly one detonator.
 
-### awsCliDetonator
-
-Runs one or more AWS CLI commands. No pack or Terraform required.
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `script` | string | No | Shell script to execute using the AWS CLI. |
-
-```yaml
-scenarios:
-  - name: aws cli detonator
-    detonate:
-      awsCliDetonator:
-        script: "aws sts get-caller-identity"
-    expectations:
-      - timeout: 1m
-        datadogSecuritySignal:
-          name: "AWS API call"
-```
 
 ### simrunDetonator
 
@@ -81,14 +61,14 @@ scenarios:
     detonate:
       simrunDetonator:
         pack: attack-pack
-        simulation: aws.exfil.s3
+        simulation: aws.s3-disable-public-access-block
         params:
           aws_region: us-east-1
           bucket_name: my-test-bucket
     expectations:
       - timeout: 5m
         elasticSecurityAlert:
-          name: "S3 Exfiltration Detected"
+          name: "S3 Public Access Block Disabled"
           severity: high
 ```
 
@@ -109,20 +89,21 @@ An `inject` block must contain `elasticInjector`. Use injection to verify a dete
 | `documents[].pack` | string | See note | Pack providing the template. Required when `template` is set. |
 | `documents[].vars` | object | No | String-to-string map of variables to substitute in the document using `{{variable_name}}` syntax. |
 
-Each document must supply either `file` or both `template` + `pack`.
+Each document must supply both `template` + `pack`.
 
 ```yaml
 scenarios:
-  - name: elastic injector
+  - name: Okta API key created without network zone restriction
     inject:
       elasticInjector:
         documents:
-          - index: "logs-test"
-            file: "doc.json"
+          - index: "logs-okta.system-default"
+            template: okta.api-token-create
+            pack: base-dev
     expectations:
-      - timeout: 1m
-        elasticSecurityAlert:
-          name: "Test alert"
+      - elasticSecurityAlert:
+          name: "Okta API key created/updated without network zone restriction"
+        timeout: 10m
 ```
 
 ---
@@ -142,8 +123,9 @@ A `collect` block must contain `elasticCollector`. Collectors run after detonati
 scenarios:
   - name: with collector
     detonate:
-      awsCliDetonator:
-        script: "aws sts get-caller-identity"
+      simrunDetonator:
+        pack: attack-pack
+        simulation: aws.s3-disable-public-access-block
     collect:
       elasticCollector:
         index: "logs-test"
@@ -151,7 +133,7 @@ scenarios:
           source.ip: "{{ indicators.terraformOutput.attacker_vm_public_ip }}"
     expectations:
       - timeout: 1m
-        datadogSecuritySignal:
+        elasticSecurityAlert:
           name: "Test signal"
 ```
 
@@ -164,8 +146,8 @@ Every scenario must declare at least one expectation. Each expectation specifies
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `timeout` | string | No | Maximum time to wait for the alert. Written as a Go duration (e.g. `5m`, `30s`, `2m30s`). Defaults to `5m`. |
-| `elasticSecurityAlert` | object | See note | Match an Elastic Security Detection alert. Required unless `datadogSecuritySignal` is used. |
-| `datadogSecuritySignal` | object | See note | Match a Datadog security signal. Required unless `elasticSecurityAlert` is used. |
+| `elasticSecurityAlert` | object | See note | Match an Elastic Security Detection alert. |
+| `datadogSecuritySignal` | object | See note | Match a Datadog security signal. |
 
 ### elasticSecurityAlert
 
@@ -189,31 +171,34 @@ Polls Datadog Security Signals until a signal with a matching name appears.
 
 ## Full example
 
-The following file exercises every top-level field — `targets`, `metadata` is omitted for brevity since it carries no executable semantics. The content matches `internal/parser/testdata/scenarios/targets-all.yaml` exactly.
-
 ```yaml
 targets:
-  aws: prod-aws
-  gcp: prod-gcp
-  azure: prod-azure
-  kubernetes: prod-k8s
-  ssh: prod-ssh
+  aws: "aws-prod"
+  azure: "azure-prod"
+
 scenarios:
-  - name: targeted all
+  - name: Exfiltrate an AMI by Sharing It
     detonate:
-      awsCliDetonator:
-        script: "true"
+      simrunDetonator:
+        pack: stratus-dev
+        simulation: aws.ec2-share-ami
     expectations:
-      - timeout: 1m
-        datadogSecuritySignal:
-          name: "Test signal"
+      - elasticSecurityAlert:
+          name: AWS EC2 AMI Shared with Another Account
+        timeout: 20m
+  - name: Delete CloudTrail Trail
+    detonate:
+      simrunDetonator:
+        pack: stratus-dev
+        simulation: aws.cloudtrail-delete
+    indicators:
+      terraformOutput:
+        - cloudtrail_trail_name
+    expectations:
+      - elasticSecurityAlert:
+          name: "AWS CloudTrail Log Deleted"
+        timeout: 15m
 ```
-
-**Walkthrough:**
-
-- `targets` maps each cloud/infra connector type to a named connector. These override any defaults set in app configuration for this file's scenarios.
-- The single scenario uses `awsCliDetonator` to call `true` (a no-op shell command) — sufficient to trigger whatever AWS CloudTrail or Datadog rule is being tested.
-- The expectation waits up to 1 minute (`timeout: 1m`) for a Datadog security signal named `"Test signal"`.
 
 ---
 

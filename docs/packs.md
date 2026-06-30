@@ -19,12 +19,27 @@ Two first-party packs are available:
 
 ## Installing a pack
 
-1. Open the **Packs** page (`/packs`).
-2. Enter the pack name and the source URL or path.
-3. Click **Install**. SimRun downloads the pack, validates its manifest, and stores it in the database.
-4. After installation the pack appears in the list with its available simulations and declared parameters.
+A pack is a compiled binary. There are two ways to install one from the **Packs** page (`/packs`), shown as **Remote** and **Upload** tabs in the install dialog.
 
-To update a pack to a newer version, use the **Update** action on the same page.
+### Remote — pull a published pack
+
+Use this for shipped or published packs.
+
+1. Open the **Packs** page (`/packs`) and start a new install.
+2. Choose **Remote**, then enter the pack name, its source (the release location), and optionally a version.
+3. Click **Install**. SimRun fetches the pack, validates its manifest, and stores it in the database.
+
+To move a remote pack to a newer version later, use the **Update** action on the same page.
+
+### Upload — install a local build
+
+Use this to install a pack binary you built yourself — ideal for **rapid development and testing of simulations**, or when publishing a pack isn't appropriate for your environment.
+
+1. Build the pack binary locally (e.g. `go build`, or `mise run build` in the pack repo).
+2. On the **Packs** page, start a new install and choose **Upload**.
+3. Enter the pack name and select the compiled binary, then install. SimRun stores the binary, runs it to read its manifest, and lists its simulations — exactly as for a remote pack.
+
+After installation — by either method — the pack appears in the list with its available simulations and declared parameters.
 
 ## Pack parameters
 
@@ -41,8 +56,6 @@ Every pack automatically includes these built-in parameters (defined in the SimR
 | `gcp_region` | GCP region used as the default for all simulations in the pack. |
 | `azure_location` | Azure location used as the default for all simulations in the pack. |
 
-`gcp_project` is **not** a built-in parameter. Because the GCP project is organisation-specific, pack authors who need it must declare it explicitly (see Custom parameters below).
-
 ### Custom parameters
 
 Pack authors declare additional parameters in the pack's `main()` function using `pack.RegisterPackParams(...pack.PackParam)`. These appear alongside the built-ins in the pack's manifest `params_schema` and are available for configuration on the Packs page once the pack is installed.
@@ -52,19 +65,10 @@ Pack authors declare additional parameters in the pack's `main()` function using
 When a simulation runs, Terraform variable values are resolved in this order (last write wins):
 
 1. **Terraform variable default** — the `default` value declared inside the module's `variable` block.
-2. **Pack-level value** — set via the Packs page or `PUT /api/packs/{name}/parameters`; applies to every simulation in the pack.
+2. **Pack-level value** — set via the Packs page; applies to every simulation in the pack.
 3. **Per-simulation scenario value** — the `params` map in the scenario YAML for a specific simulation; overrides the pack-level value for that run only.
 
 Map and array parameter values are JSON-encoded before being passed to Terraform as `TF_VAR_<key>`.
-
-## Validation
-
-`PUT /api/packs/{name}/parameters` validates submitted values against the pack's `params_schema`:
-
-- **Declared keys** are strict-validated for type, enum membership, and required constraints.
-- **Unknown keys** (keys not declared in the schema) are kept and returned in the response's `unknown_keys` field as a soft warning. They are stored but will not be passed to Terraform unless the pack declares them in a future version.
-
-If the manifest cannot be fetched or the schema is empty, validation falls back to permissive storage (all keys accepted without type checking).
 
 ## See also
 
