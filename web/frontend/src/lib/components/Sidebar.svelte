@@ -8,6 +8,7 @@
 	import { activeRuns } from '$lib/stores/runs';
 	import { getVersion } from '$lib/api/client';
 	import { health } from '$lib/stores/health';
+	import simrunIcon from '$lib/assets/simrun-icon.png';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
@@ -54,23 +55,23 @@
 	<SidebarUI.SidebarHeader>
 		{#if sidebar.state === 'collapsed'}
 			<div class="flex items-center justify-center py-1">
-				<div
-					class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-primary-foreground text-[10px] font-bold font-mono transition-shadow {!$health
+				<img
+					src={simrunIcon}
+					alt="SimRun"
+					class="h-6 w-6 shrink-0 rounded object-cover transition-shadow {!$health
 						? 'shadow-[0_0_10px] shadow-status-error/60 ring-1 ring-status-error/40'
 						: ''}"
-				>
-					SR
-				</div>
+				/>
 			</div>
 		{:else}
 			<div class="flex items-center gap-2 px-2 py-2">
-				<div
-					class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold font-mono tracking-tight transition-shadow {!$health
+				<img
+					src={simrunIcon}
+					alt="SimRun"
+					class="h-8 w-8 shrink-0 rounded-md object-cover transition-shadow {!$health
 						? 'shadow-[0_0_12px] shadow-status-error/60 ring-1 ring-status-error/40'
 						: ''}"
-				>
-					SR
-				</div>
+				/>
 				<div class="flex flex-col overflow-hidden">
 					<span class="text-sm font-semibold truncate">SimRun</span>
 					<span class="text-xs text-muted-foreground truncate">Attack Simulation</span>
