@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>An Attack Simulation Platform for detection engineering.</strong><br>
-  Detonate attacks, verify the alerts fire, and measure exactly which detections you're testing — across multiple clouds and SIEMs.
+  Detonate attacks, verify the alerts fire, and measure exactly which detections you're testing — across multiple clouds.
 </p>
 
 <p align="center">
