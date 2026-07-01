@@ -19,6 +19,7 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 
 	let { pack, ondelete }: { pack: Pack; ondelete?: () => void } = $props();
 
@@ -66,6 +67,16 @@
 	}
 
 	let displayVersion = $derived(manifest?.pack.version ?? pack.version);
+
+	// Remote packs store their source as github.com/org/repo. Drop the redundant
+	// host so the card shows a scannable org/repo slug linking to the repo.
+	let remoteRepo = $derived.by(() => {
+		if (pack.type !== 'remote') return null;
+		const bare = pack.source.replace(/^https?:\/\//, '');
+		const parts = bare.split('/');
+		if (parts.length !== 3 || parts[0] !== 'github.com') return null;
+		return { slug: `${parts[1]}/${parts[2]}`, url: `https://${bare}` };
+	});
 	let simulationCount = $derived(manifest?.simulations.length ?? null);
 	let templateCount = $derived(manifest?.templates?.length ?? 0);
 
@@ -131,9 +142,44 @@
 		</div>
 		<div class="min-w-0 flex-1">
 			<h3 class="truncate text-base font-semibold tracking-tight">{pack.name}</h3>
-			<p class="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-				{pack.type === 'upload' ? 'uploaded binary' : pack.source}
-			</p>
+			{#if pack.type === 'upload'}
+				<p class="mt-0.5 truncate font-mono text-xs text-muted-foreground">uploaded binary</p>
+			{:else if remoteRepo}
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<a
+								{...props}
+								href={remoteRepo.url}
+								target="_blank"
+								rel="noreferrer noopener"
+								onclick={(e) => e.stopPropagation()}
+								class="mt-0.5 inline-flex max-w-full items-center gap-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+							>
+								<span class="truncate">{remoteRepo.slug}</span>
+								<ExternalLinkIcon
+									class="size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-60"
+								/>
+							</a>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content>{pack.source}</Tooltip.Content>
+				</Tooltip.Root>
+			{:else}
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<span
+								{...props}
+								class="mt-0.5 block max-w-full cursor-default truncate font-mono text-xs text-muted-foreground"
+							>
+								{pack.source}
+							</span>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content>{pack.source}</Tooltip.Content>
+				</Tooltip.Root>
+			{/if}
 		</div>
 		<Badge variant="outline" class="shrink-0 font-mono">v{displayVersion}</Badge>
 		<DropdownMenu.Root>
