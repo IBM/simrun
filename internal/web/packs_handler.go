@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"github.com/IBM/simrun/internal/config"
 	"github.com/IBM/simrun/internal/db"
 	"github.com/IBM/simrun/internal/packs/locks"
+	"github.com/IBM/simrun/internal/packs/resolver"
 	packrunner "github.com/IBM/simrun/internal/packs/runner"
 	"github.com/go-chi/chi/v5"
 )
@@ -37,7 +39,14 @@ func (h *PackHandlers) HandleListPacks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, packs)
 }
 
-// HandleInstallPack handles POST /api/packs/install
+// HandleInstallPack handles POST /api/packs/install.
+//
+// Install is an eager operation: the pack binary is made available (downloaded
+// and checksum-verified for remote, verified on disk for local), its manifest
+// command is run to derive the pack's identity, and only then is a row
+// persisted. Any failure (bad repo, missing asset, checksum mismatch, manifest
+// error, non-existent path) returns an error and creates no DB record. The
+// request's `name` is ignored — the manifest is the source of truth.
 func (h *PackHandlers) HandleInstallPack(w http.ResponseWriter, r *http.Request) {
 	var req InstallPackRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -46,21 +55,32 @@ func (h *PackHandlers) HandleInstallPack(w http.ResponseWriter, r *http.Request)
 	}
 
 	switch config.PackType(req.Type) {
-	case config.PackTypeLocal, config.PackTypeRemote, config.PackTypeUpload:
-		// recognized
+	case config.PackTypeLocal, config.PackTypeRemote:
+		// installed below
+	case config.PackTypeUpload:
+		writeError(w, http.StatusBadRequest, "upload packs must be installed via POST /api/packs/upload")
+		return
 	default:
 		writeError(w, http.StatusBadRequest,
 			fmt.Sprintf("invalid pack type %q: allowed types are local, remote, upload", req.Type))
 		return
 	}
 
-	pack := &db.Pack{
-		Name:       req.Name,
-		Type:       req.Type,
-		Source:     req.Source,
-		Version:    req.Version,
-		Status:     "installed",
-		Parameters: req.Parameters,
+	res, err := resolver.NewResolver(h.dataDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create pack resolver")
+		return
+	}
+
+	var pack *db.Pack
+	if config.PackType(req.Type) == config.PackTypeRemote {
+		pack, err = h.installRemote(r.Context(), res, req)
+	} else {
+		pack, err = h.installLocal(r.Context(), res, req)
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	if err := h.packStore.Upsert(r.Context(), pack, getUserEmail(r)); err != nil {
@@ -69,6 +89,114 @@ func (h *PackHandlers) HandleInstallPack(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, http.StatusCreated, pack)
+}
+
+// installRemote downloads + verifies + extracts a remote pack into a staging
+// dir, runs its manifest to derive the name, then relocates the binary to the
+// canonical version-keyed cache path. The persisted version is the resolved
+// release tag (not an operator-typed value).
+func (h *PackHandlers) installRemote(ctx context.Context, res *resolver.Resolver, req InstallPackRequest) (*db.Pack, error) {
+	if req.Source == "" {
+		return nil, fmt.Errorf("source is required for remote packs")
+	}
+
+	// Stage the download inside the cache dir so the later relocate is a
+	// same-filesystem rename.
+	staging, err := os.MkdirTemp(res.CacheDir(), ".staging-")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create staging directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+
+	fetched, err := res.Fetch(ctx, req.Source, req.Version, staging)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest, err := res.GetManifest(ctx, fetched.BinaryPath)
+	if err != nil {
+		return nil, fmt.Errorf("manifest validation failed: %w", err)
+	}
+	name := manifest.Pack.Name
+	if err := validateManifestName(name); err != nil {
+		return nil, err
+	}
+
+	// Relocate under the per-pack lock so a concurrent install/delete of the
+	// same pack cannot interleave with the rename.
+	release := locks.Acquire(name)
+	defer release()
+
+	destPath := filepath.Join(res.CacheDir(), name, fetched.Version, filepath.Base(fetched.BinaryPath))
+	if err := moveFile(fetched.BinaryPath, destPath); err != nil {
+		return nil, err
+	}
+
+	return &db.Pack{
+		Name:       name,
+		Type:       string(config.PackTypeRemote),
+		Source:     req.Source,
+		Version:    fetched.Version,
+		Status:     "installed",
+		Parameters: req.Parameters,
+	}, nil
+}
+
+// installLocal verifies the source path exists and runs its manifest to derive
+// the pack's identity. The binary is referenced in place, never copied.
+func (h *PackHandlers) installLocal(ctx context.Context, res *resolver.Resolver, req InstallPackRequest) (*db.Pack, error) {
+	if req.Source == "" {
+		return nil, fmt.Errorf("source (path) is required for local packs")
+	}
+	if _, err := os.Stat(req.Source); err != nil {
+		return nil, fmt.Errorf("pack binary not found at %s: %w", req.Source, err)
+	}
+
+	manifest, err := res.GetManifest(ctx, req.Source)
+	if err != nil {
+		return nil, fmt.Errorf("manifest validation failed: %w", err)
+	}
+	name := manifest.Pack.Name
+	if err := validateManifestName(name); err != nil {
+		return nil, err
+	}
+
+	return &db.Pack{
+		Name:       name,
+		Type:       string(config.PackTypeLocal),
+		Source:     req.Source,
+		Version:    manifest.Pack.Version,
+		Status:     "installed",
+		Parameters: req.Parameters,
+	}, nil
+}
+
+// validateManifestName rejects manifest names that are unsafe to use as a
+// filesystem path component (the name becomes a cache directory for remote and
+// upload packs).
+func validateManifestName(name string) error {
+	if name == "" {
+		return fmt.Errorf("pack manifest did not report a name")
+	}
+	if strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") || name != filepath.Base(name) {
+		return fmt.Errorf("invalid pack name %q from manifest: cannot contain path separators or '..'", name)
+	}
+	return nil
+}
+
+// moveFile relocates srcPath to destPath, creating the destination directory
+// and replacing any existing file. Used to promote a staged binary to its
+// canonical cache path; staging dirs live under the cache dir so this is a
+// same-filesystem rename.
+func moveFile(srcPath, destPath string) error {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+	_ = os.Remove(destPath)
+	if err := os.Rename(srcPath, destPath); err != nil {
+		return fmt.Errorf("failed to relocate pack binary: %w", err)
+	}
+	return nil
 }
 
 // HandleDeletePack handles DELETE /api/packs/{name}
@@ -227,24 +355,17 @@ func (h *PackHandlers) fetchPackParamsSchema(r *http.Request, pack *db.Pack) *pa
 // maxUploadSize is the maximum allowed pack binary upload size (500MB).
 const maxUploadSize = 500 << 20
 
-// HandleUploadPack handles POST /api/packs/upload
+// HandleUploadPack handles POST /api/packs/upload.
+//
+// The uploaded binary is written to a staging location, its manifest command is
+// run to derive the pack's identity, then it is relocated to
+// <DataDir>/packs/<name>/upload/<name>. The request's `name` form field is
+// ignored. A manifest failure aborts the install with no DB record.
 func (h *PackHandlers) HandleUploadPack(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB memory buffer, rest goes to disk
 		writeError(w, http.StatusBadRequest, "File too large (max 500MB) or invalid form data")
-		return
-	}
-
-	name := r.FormValue("name")
-	if name == "" {
-		writeError(w, http.StatusBadRequest, "Pack name is required")
-		return
-	}
-
-	// Validate name to prevent directory traversal
-	if strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") || name != filepath.Base(name) {
-		writeError(w, http.StatusBadRequest, "Invalid pack name: cannot contain path separators or '..'")
 		return
 	}
 
@@ -255,70 +376,76 @@ func (h *PackHandlers) HandleUploadPack(w http.ResponseWriter, r *http.Request) 
 	}
 	defer file.Close()
 
-	// Serialize the write + manifest-validate + upsert against any concurrent
-	// upload or delete of the same pack so they cannot interleave mid-write.
-	release := locks.Acquire(name)
-	defer release()
-
-	// Determine upload directory
-	uploadDir := filepath.Join(h.dataDir, "packs", name, "upload")
-	binaryPath := filepath.Join(uploadDir, name)
-
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to create upload directory")
+	res, err := resolver.NewResolver(h.dataDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create pack resolver")
 		return
 	}
 
-	// Write binary to disk
-	outFile, err := os.OpenFile(binaryPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	// Stage the upload inside the cache dir so the later relocate is a
+	// same-filesystem rename.
+	staging, err := os.MkdirTemp(res.CacheDir(), ".staging-")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to create staging directory")
+		return
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+
+	stagedPath := filepath.Join(staging, "pack")
+	outFile, err := os.OpenFile(stagedPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to create binary file")
 		return
 	}
-
-	if _, err := io.Copy(outFile, file); err != nil {
+	if _, err := io.Copy(outFile, file); err != nil { //nolint:gosec // size-capped by MaxBytesReader above
 		outFile.Close()
-		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusInternalServerError, "Failed to write binary file")
 		return
 	}
 	if err := outFile.Close(); err != nil {
-		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusInternalServerError, "Failed to finalize binary file")
 		return
 	}
 
-	// Validate pack by running manifest command
-	factory, err := packrunner.NewFactory(h.dataDir)
+	// Derive identity from the manifest before persisting anything.
+	manifest, err := res.GetManifest(r.Context(), stagedPath)
 	if err != nil {
-		_ = os.Remove(binaryPath)
-		writeError(w, http.StatusInternalServerError, "Failed to create pack runner factory")
-		return
-	}
-
-	cfg := config.PackConfig{
-		Name:   name,
-		Type:   config.PackTypeUpload,
-		Source: binaryPath,
-	}
-
-	if _, err := factory.GetManifest(r.Context(), cfg, nil, nil); err != nil {
-		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusBadRequest,
 			fmt.Sprintf("Invalid pack binary: manifest validation failed: %v", err))
 		return
 	}
+	name := manifest.Pack.Name
+	if err := validateManifestName(name); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	// Save to database
+	// Serialize relocate + upsert against any concurrent upload or delete of the
+	// same pack so they cannot interleave.
+	release := locks.Acquire(name)
+	defer release()
+
+	// Replace any previous upload of this pack, then relocate the staged binary.
+	uploadDir := filepath.Join(res.CacheDir(), name, "upload")
+	if err := os.RemoveAll(uploadDir); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to clear previous upload")
+		return
+	}
+	binaryPath := filepath.Join(uploadDir, name)
+	if err := moveFile(stagedPath, binaryPath); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	pack := &db.Pack{
-		Name:   name,
-		Type:   string(config.PackTypeUpload),
-		Source: binaryPath,
-		Status: "installed",
+		Name:    name,
+		Type:    string(config.PackTypeUpload),
+		Source:  binaryPath,
+		Version: manifest.Pack.Version,
+		Status:  "installed",
 	}
 
 	if err := h.packStore.Upsert(r.Context(), pack, getUserEmail(r)); err != nil {
-		_ = os.Remove(binaryPath)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

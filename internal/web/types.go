@@ -48,7 +48,10 @@ type UpdateConfigRequest struct {
 }
 
 type InstallPackRequest struct {
-	Name       string         `json:"name"`
+	// Name is ignored: a pack's identity is derived from its manifest at
+	// install time. It is retained only for backward compatibility with older
+	// clients that still send it.
+	Name       string         `json:"name,omitempty"`
 	Type       string         `json:"type"`
 	Source     string         `json:"source"`
 	Version    string         `json:"version,omitempty"`
