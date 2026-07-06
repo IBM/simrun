@@ -1,16 +1,13 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import simrunIcon from '$lib/assets/simrun-icon.png';
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-background">
 	<Card.Root class="w-[400px]">
 		<Card.Header class="text-center">
-			<div
-				class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold font-mono"
-			>
-				SR
-			</div>
+			<img src={simrunIcon} alt="SimRun" class="mx-auto mb-2 h-12 w-12 rounded-lg object-cover" />
 			<Card.Title class="text-xl">Welcome to SimRun</Card.Title>
 			<Card.Description>Sign in with your Google account to continue</Card.Description>
 		</Card.Header>
