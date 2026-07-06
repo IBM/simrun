@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"time"
 
@@ -46,6 +47,8 @@ func NewScenarioService(runStore db.RunStore, assessmentStore db.AssessmentStore
 
 // loadPacksFromDB returns the pack list as []config.PackConfig sourced entirely
 // from the database. Replaces populatePackParameters which merged YAML+DB.
+// Org-wide default tags from app config are merged per-key beneath each
+// pack's own default_tags so every consumer sees effective parameters.
 func (s *ScenarioService) loadPacksFromDB(ctx context.Context) ([]config.PackConfig, error) {
 	if s.packStore == nil {
 		return nil, nil
@@ -54,6 +57,14 @@ func (s *ScenarioService) loadPacksFromDB(ctx context.Context) ([]config.PackCon
 	if err != nil {
 		return nil, err
 	}
+	orgTags := map[string]string{}
+	if s.configStore != nil {
+		appCfg, err := s.configStore.GetAppConfig(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load app config: %w", err)
+		}
+		orgTags = appCfg.DefaultTags
+	}
 	out := make([]config.PackConfig, 0, len(dbPacks))
 	for _, p := range dbPacks {
 		out = append(out, config.PackConfig{
@@ -61,10 +72,56 @@ func (s *ScenarioService) loadPacksFromDB(ctx context.Context) ([]config.PackCon
 			Type:       config.PackType(p.Type),
 			Source:     p.Source,
 			Version:    p.Version,
-			Parameters: p.Parameters,
+			Parameters: mergeOrgDefaultTags(p.Parameters, orgTags),
 		})
 	}
 	return out, nil
+}
+
+// mergeOrgDefaultTags overlays a pack's own default_tags on top of the
+// org-wide map: an org tag applies unless the pack sets the same key, and a
+// pack cannot delete an org tag. An empty org map returns params unchanged,
+// and a malformed pack-level value (not a string→string map) passes through
+// with no merge, preserving pre-org-tags behavior.
+func mergeOrgDefaultTags(params map[string]any, orgTags map[string]string) map[string]any {
+	if len(orgTags) == 0 {
+		return params
+	}
+	packTags := map[string]string{}
+	if raw, exists := params["default_tags"]; exists {
+		var ok bool
+		if packTags, ok = asStringMap(raw); !ok {
+			return params
+		}
+	}
+	merged := make(map[string]string, len(orgTags)+len(packTags))
+	maps.Copy(merged, orgTags)
+	maps.Copy(merged, packTags)
+	out := make(map[string]any, len(params)+1)
+	maps.Copy(out, params)
+	out["default_tags"] = merged
+	return out
+}
+
+// asStringMap converts a JSONB-decoded parameter value into a string→string
+// map, reporting false when the value is not an object of strings.
+func asStringMap(v any) (map[string]string, bool) {
+	switch typed := v.(type) {
+	case map[string]string:
+		return typed, true
+	case map[string]any:
+		out := make(map[string]string, len(typed))
+		for k, val := range typed {
+			s, ok := val.(string)
+			if !ok {
+				return nil, false
+			}
+			out[k] = s
+		}
+		return out, true
+	default:
+		return nil, false
+	}
 }
 
 // Lint parses YAML and returns a summary without executing.

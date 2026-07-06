@@ -13,6 +13,7 @@
 	import MitreCoverage from '$lib/components/MitreCoverage.svelte';
 	import { packs, loadPacks } from '$lib/stores/packs';
 	import { installPack, uploadPack } from '$lib/api/client';
+	import { toast } from 'svelte-sonner';
 	import PackageIcon from '@lucide/svelte/icons/package';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -31,7 +32,6 @@
 	});
 
 	let installDialogOpen = $state(false);
-	let installName = $state('');
 	let installType = $state('remote');
 	let installSource = $state('');
 	let installVersion = $state('');
@@ -58,17 +58,14 @@
 	});
 
 	async function handleInstall() {
-		if (!installName.trim()) return;
 		installing = true;
-		error = '';
 		try {
 			if (installType === 'upload') {
 				if (!installFile) return;
-				await uploadPack(installName.trim(), installFile);
+				await uploadPack(installFile);
 			} else {
 				if (!installSource.trim()) return;
 				await installPack({
-					name: installName.trim(),
 					type: installType,
 					source: installSource.trim(),
 					version: installVersion.trim() || undefined
@@ -76,21 +73,21 @@
 			}
 			await loadPacks();
 			installDialogOpen = false;
-			installName = '';
 			installSource = '';
 			installVersion = '';
 			installFile = null;
+			toast.success('Pack installed');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Install failed';
+			toast.error('Install failed', {
+				description: e instanceof Error ? e.message : 'Unexpected error'
+			});
 		} finally {
 			installing = false;
 		}
 	}
 
 	let installDisabled = $derived(
-		installing ||
-			!installName.trim() ||
-			(installType === 'upload' ? !installFile : !installSource.trim())
+		installing || (installType === 'upload' ? !installFile : !installSource.trim())
 	);
 
 	async function handleDelete() {
@@ -113,7 +110,6 @@
 					<Dialog.Description>Install a new simulation pack.</Dialog.Description>
 				</Dialog.Header>
 				<div class="space-y-4">
-					<Input placeholder="Pack name" bind:value={installName} />
 					<div>
 						<Label>Type</Label>
 						<div class="mt-1">
@@ -149,8 +145,8 @@
 							</Alert.Description>
 						</Alert.Root>
 					{:else}
-						<Input placeholder="Source (URL or path)" bind:value={installSource} />
-						<Input placeholder="Version (optional)" bind:value={installVersion} />
+						<Input placeholder="Source (github.com/org/repo)" bind:value={installSource} />
+						<Input placeholder="Version (optional, latest if blank)" bind:value={installVersion} />
 					{/if}
 				</div>
 				<div class="flex justify-end gap-2 pt-4">

@@ -29,12 +29,16 @@
 		// drives render order inside the section — regions first, then
 		// the broad default_tags knob at the bottom.
 		builtinNames = ['aws_region', 'gcp_region', 'azure_location', 'default_tags'],
+		// Org-wide default tags from app settings, shown read-only inside the
+		// default_tags section. Never written back through onchange.
+		inheritedDefaultTags = {},
 		onchange
 	}: {
 		schema: Record<string, unknown> | undefined;
 		values: Record<string, unknown>;
 		errors?: Record<string, string>;
 		builtinNames?: string[];
+		inheritedDefaultTags?: Record<string, string>;
 		onchange: (next: Record<string, unknown>) => void;
 	} = $props();
 
@@ -67,9 +71,12 @@
 	let unknownKeys = $derived<string[]>(Object.keys(values).filter((k) => !(k in properties)));
 
 	// Auto-expand the cloud defaults section if any built-in has a saved
-	// value, otherwise start collapsed.
+	// value or org tags are inherited, otherwise start collapsed.
 	// svelte-ignore state_referenced_locally
-	let cloudOpen = $state(builtinEntries.some(([name]) => values[name] !== undefined));
+	let cloudOpen = $state(
+		builtinEntries.some(([name]) => values[name] !== undefined) ||
+			Object.keys(inheritedDefaultTags).length > 0
+	);
 
 	function update(name: string, value: unknown) {
 		const next = { ...values, [name]: value };
@@ -152,7 +159,28 @@
 			</Select.Root>
 		{:else if prop.type === 'object' && prop.additionalProperties?.type === 'string'}
 			{@const entries = objectToEntries(value)}
+			{@const inherited = name === 'default_tags' ? Object.entries(inheritedDefaultTags) : []}
 			<div class="space-y-2">
+				{#if inherited.length > 0}
+					{@const packKeys = new Set(entries.map((e) => e.key.trim()))}
+					<div class="space-y-1">
+						{#each inherited as [k, v] (k)}
+							{@const overridden = packKeys.has(k)}
+							<div
+								class="grid grid-cols-[1fr_1fr_auto] items-center gap-2 px-3 text-xs text-muted-foreground"
+							>
+								<span class="font-mono truncate {overridden ? 'line-through opacity-60' : ''}">
+									{k}
+								</span>
+								<span class="font-mono truncate {overridden ? 'line-through opacity-60' : ''}">
+									{v}
+								</span>
+								<span class="text-[10px]">{overridden ? 'overridden' : ''}</span>
+							</div>
+						{/each}
+						<p class="px-3 text-[10px] text-muted-foreground/70">Inherited from Settings</p>
+					</div>
+				{/if}
 				{#each entries as entry, i}
 					<div class="grid grid-cols-[1fr_1fr_auto] gap-2">
 						<Input

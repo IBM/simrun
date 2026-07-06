@@ -7,10 +7,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"runtime"
 	"strings"
@@ -18,18 +18,6 @@ import (
 	"sync/atomic"
 	"testing"
 )
-
-// redirectTransport rewrites the scheme+host of every request to the stub
-// server, so resolver's hardcoded github.com URLs reach the test server.
-type redirectTransport struct {
-	target *url.URL
-}
-
-func (t *redirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.URL.Scheme = t.target.Scheme
-	req.URL.Host = t.target.Host
-	return http.DefaultTransport.RoundTrip(req)
-}
 
 // TestResolveConcurrentSamePackDownloadsOnce verifies that two concurrent
 // Resolve calls for the same pack serialize so the archive is downloaded
@@ -49,31 +37,32 @@ func TestResolveConcurrentSamePackDownloadsOnce(t *testing.T) {
 	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(sum[:]), archiveName)
 
 	var archiveDownloads int32
+	var srv *httptest.Server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/releases/tags/v"+version):
+			writeReleaseJSON(w, srv.URL, "v"+version, []githubAsset{
+				{Name: archiveName},
+				{Name: "checksums.txt"},
+			})
 		case strings.HasSuffix(r.URL.Path, "/checksums.txt"):
-			w.Write([]byte(checksums))
+			_, _ = w.Write([]byte(checksums))
 		case strings.HasSuffix(r.URL.Path, archiveName):
 			atomic.AddInt32(&archiveDownloads, 1)
-			w.Write(archive)
+			_, _ = w.Write(archive)
 		default:
 			http.NotFound(w, r)
 		}
 	})
-	srv := httptest.NewServer(mux)
+	srv = httptest.NewServer(mux)
 	defer srv.Close()
-
-	srvURL, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatalf("parse server url: %v", err)
-	}
 
 	r, err := NewResolverWithCacheDir(t.TempDir())
 	if err != nil {
 		t.Fatalf("new resolver: %v", err)
 	}
-	r.httpClient = &http.Client{Transport: &redirectTransport{target: srvURL}}
+	r.apiBaseURL = srv.URL
 
 	cfg := PackConfig{Name: packName, Source: "github.com/org/repo", Version: version}
 
@@ -108,19 +97,46 @@ func TestResolveConcurrentSamePackDownloadsOnce(t *testing.T) {
 	}
 }
 
+// writeReleaseJSON writes a GitHub Releases API response whose asset download
+// URLs point back at baseURL (so the resolver's default HTTP client reaches the
+// stub without any transport rewriting).
+func writeReleaseJSON(w http.ResponseWriter, baseURL, tag string, assets []githubAsset) {
+	for i := range assets {
+		if assets[i].BrowserDownloadURL == "" {
+			assets[i].BrowserDownloadURL = fmt.Sprintf("%s/dl/%s/%s", baseURL, tag, assets[i].Name)
+		}
+	}
+	_ = json.NewEncoder(w).Encode(githubRelease{TagName: tag, Assets: assets})
+}
+
 // buildTarGz returns a .tar.gz archive containing a single entry named
 // binaryName with the given content.
 func buildTarGz(t *testing.T, binaryName string, content []byte) []byte {
 	t.Helper()
+	return buildTarGzMulti(t, []tarEntry{{name: binaryName, content: content, mode: 0755}})
+}
+
+// tarEntry describes a single file written into a test archive.
+type tarEntry struct {
+	name    string
+	content []byte
+	mode    int64
+}
+
+// buildTarGzMulti returns a .tar.gz archive containing the given entries.
+func buildTarGzMulti(t *testing.T, entries []tarEntry) []byte {
+	t.Helper()
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
-	hdr := &tar.Header{Name: binaryName, Mode: 0755, Size: int64(len(content))}
-	if err := tw.WriteHeader(hdr); err != nil {
-		t.Fatalf("write tar header: %v", err)
-	}
-	if _, err := tw.Write(content); err != nil {
-		t.Fatalf("write tar content: %v", err)
+	for _, e := range entries {
+		hdr := &tar.Header{Name: e.name, Mode: e.mode, Size: int64(len(e.content)), Typeflag: tar.TypeReg}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatalf("write tar header: %v", err)
+		}
+		if _, err := tw.Write(e.content); err != nil {
+			t.Fatalf("write tar content: %v", err)
+		}
 	}
 	if err := tw.Close(); err != nil {
 		t.Fatalf("close tar: %v", err)

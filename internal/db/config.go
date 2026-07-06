@@ -120,6 +120,12 @@ func parseAppConfig(all map[string]json.RawMessage) config.AppConfig {
 			cfg.RunRetentionDays = n
 		}
 	}
+	if v, ok := all["default_tags"]; ok {
+		var m map[string]string
+		if err := json.Unmarshal(v, &m); err == nil && m != nil {
+			cfg.DefaultTags = m
+		}
+	}
 
 	return cfg
 }
@@ -142,6 +148,7 @@ func appConfigKVs(c config.AppConfig) []appConfigKV {
 		{"run_log_retention_days", c.RunLogRetentionDays},
 		{"run_retention_enabled", c.RunRetentionEnabled},
 		{"run_retention_days", c.RunRetentionDays},
+		{"default_tags", c.DefaultTags},
 	}
 }
 

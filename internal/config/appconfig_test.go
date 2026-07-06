@@ -16,5 +16,6 @@ func TestDefaultAppConfig(t *testing.T) {
 		RunLogRetentionDays:    7,
 		RunRetentionEnabled:    false,
 		RunRetentionDays:       30,
+		DefaultTags:            map[string]string{},
 	}, DefaultAppConfig())
 }

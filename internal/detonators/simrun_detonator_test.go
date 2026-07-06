@@ -108,6 +108,23 @@ func TestTerraformEnvVars_MapValueJSONEncoded(t *testing.T) {
 	}
 }
 
+// The org-wide default tags merge (web.loadPacksFromDB) stores default_tags
+// as map[string]string; it must reach terraform identically to the
+// map[string]any a pack stores on its own.
+func TestTerraformEnvVars_MergedStringMapJSONEncoded(t *testing.T) {
+	d := &SimrunDetonator{
+		packConfig: config.PackConfig{
+			Parameters: map[string]any{
+				"default_tags": map[string]string{"owner": "secops"},
+			},
+		},
+	}
+	env := d.terraformEnvVars("exec-1")
+	if got := env["TF_VAR_default_tags"]; got != `{"owner":"secops"}` {
+		t.Errorf("TF_VAR_default_tags = %q, want JSON-encoded object", got)
+	}
+}
+
 func TestFormatTFVar(t *testing.T) {
 	tests := []struct {
 		in   any

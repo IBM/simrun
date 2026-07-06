@@ -187,7 +187,6 @@ export async function listPacks(): Promise<Pack[]> {
 }
 
 export async function installPack(pack: {
-	name: string;
 	type: string;
 	source: string;
 	version?: string;
@@ -195,9 +194,8 @@ export async function installPack(pack: {
 	return request('/packs/install', { method: 'POST', body: JSON.stringify(pack) });
 }
 
-export async function uploadPack(name: string, file: File): Promise<void> {
+export async function uploadPack(file: File): Promise<void> {
 	const formData = new FormData();
-	formData.append('name', name);
 	formData.append('file', file);
 
 	const res = await fetch(`${BASE}/packs/upload`, {

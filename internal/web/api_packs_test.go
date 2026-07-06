@@ -26,21 +26,23 @@ func TestHandleListPacks_Empty(t *testing.T) {
 func TestHandleInstallPack_AndList(t *testing.T) {
 	ts := testserver.New(t)
 
+	// Install is now eager: a local install verifies the path and runs the
+	// pack's manifest to derive the identity. The request name is ignored.
+	bin := writeExecutable(t, t.TempDir(), "anything", manifestScript("base-pack", "1.0.0"))
 	resp := ts.Post(t, "/api/packs/install", web.InstallPackRequest{
-		Name:    "base",
-		Type:    "remote",
-		Source:  "owner/repo",
-		Version: "v1.0.0",
+		Name:   "ignored",
+		Type:   "local",
+		Source: bin,
 	})
 	defer resp.Body.Close()
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.Equal(t, http.StatusCreated, resp.StatusCode, testserver.ReadBody(t, resp))
 
 	resp = ts.Get(t, "/api/packs")
 	defer resp.Body.Close()
 	var packs []db.Pack
 	testserver.DecodeJSON(t, resp, &packs)
 	require.Len(t, packs, 1)
-	assert.Equal(t, "base", packs[0].Name)
+	assert.Equal(t, "base-pack", packs[0].Name)
 	assert.Equal(t, "installed", packs[0].Status)
 }
 
