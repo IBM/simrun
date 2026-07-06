@@ -197,6 +197,15 @@ export interface AssessmentListResponse {
 // Config types
 export interface AppConfig {
 	[key: string]: unknown;
+	parallelism?: number;
+	terraform_version?: string;
+	pack_logs_enabled?: boolean;
+	ssh_logging_enabled?: boolean;
+	run_log_retention_enabled?: boolean;
+	run_log_retention_days?: number;
+	run_retention_enabled?: boolean;
+	run_retention_days?: number;
+	default_tags?: Record<string, string>;
 }
 
 // Version
