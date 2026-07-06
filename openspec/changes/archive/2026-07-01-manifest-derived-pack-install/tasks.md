@@ -27,4 +27,4 @@
 
 ## 5. Spec sync
 
-- [ ] 5.1 After implementation, apply the spec delta to `openspec/specs/packs/spec.md` (handled at archive time) and confirm scenarios match the shipped behavior.
+- [x] 5.1 After implementation, apply the spec delta to `openspec/specs/packs/spec.md` (handled at archive time) and confirm scenarios match the shipped behavior.

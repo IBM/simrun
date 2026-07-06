@@ -30,6 +30,7 @@ func TestParseAppConfig_InvalidJSONKeepsDefault(t *testing.T) {
 		"terraform_version":   json.RawMessage(`123`),
 		"pack_logs_enabled":   json.RawMessage(`"yes"`),
 		"ssh_logging_enabled": json.RawMessage(`{bad json`),
+		"default_tags":        json.RawMessage(`"owner=secops"`),
 	})
 	assert.Equal(t, config.DefaultAppConfig(), got)
 }
@@ -55,6 +56,7 @@ func TestParseAppConfig_AllSet(t *testing.T) {
 		"run_log_retention_days":    json.RawMessage(`14`),
 		"run_retention_enabled":     json.RawMessage(`true`),
 		"run_retention_days":        json.RawMessage(`90`),
+		"default_tags":              json.RawMessage(`{"owner":"secops"}`),
 	})
 	assert.Equal(t, config.AppConfig{
 		Parallelism:            12,
@@ -65,6 +67,7 @@ func TestParseAppConfig_AllSet(t *testing.T) {
 		RunLogRetentionDays:    14,
 		RunRetentionEnabled:    true,
 		RunRetentionDays:       90,
+		DefaultTags:            map[string]string{"owner": "secops"},
 	}, got)
 }
 
@@ -94,6 +97,7 @@ func TestAppConfigKVs_MarshalsToExpectedJSON(t *testing.T) {
 		RunLogRetentionDays:    7,
 		RunRetentionEnabled:    false,
 		RunRetentionDays:       30,
+		DefaultTags:            map[string]string{"owner": "secops"},
 	}
 
 	want := map[string]string{
@@ -105,6 +109,7 @@ func TestAppConfigKVs_MarshalsToExpectedJSON(t *testing.T) {
 		"run_log_retention_days":    `7`,
 		"run_retention_enabled":     `false`,
 		"run_retention_days":        `30`,
+		"default_tags":              `{"owner":"secops"}`,
 	}
 
 	kvs := appConfigKVs(c)
@@ -129,6 +134,7 @@ func TestFakeConfigStore_UpdateGetAppConfigRoundtrip(t *testing.T) {
 		RunLogRetentionDays:    14,
 		RunRetentionEnabled:    true,
 		RunRetentionDays:       90,
+		DefaultTags:            map[string]string{"owner": "secops", "simulated": "true"},
 	}
 	require.NoError(t, f.UpdateAppConfig(ctx, want))
 
@@ -139,7 +145,7 @@ func TestFakeConfigStore_UpdateGetAppConfigRoundtrip(t *testing.T) {
 	assert.Equal(t, []string{
 		"parallelism", "terraform_version", "pack_logs_enabled", "ssh_logging_enabled",
 		"run_log_retention_enabled", "run_log_retention_days",
-		"run_retention_enabled", "run_retention_days",
+		"run_retention_enabled", "run_retention_days", "default_tags",
 	}, f.sets)
 }
 

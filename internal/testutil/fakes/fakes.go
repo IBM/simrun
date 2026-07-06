@@ -784,6 +784,12 @@ func (s *ConfigStore) GetAppConfig(_ context.Context) (config.AppConfig, error) 
 			out.RunRetentionDays = v
 		}
 	}
+	if raw, ok := s.data["default_tags"]; ok {
+		var v map[string]string
+		if err := json.Unmarshal(raw, &v); err == nil && v != nil {
+			out.DefaultTags = v
+		}
+	}
 	return out, nil
 }
 
@@ -799,6 +805,7 @@ func (s *ConfigStore) UpdateAppConfig(_ context.Context, c config.AppConfig) err
 		"run_log_retention_days":    c.RunLogRetentionDays,
 		"run_retention_enabled":     c.RunRetentionEnabled,
 		"run_retention_days":        c.RunRetentionDays,
+		"default_tags":              c.DefaultTags,
 	} {
 		raw, err := json.Marshal(v)
 		if err != nil {

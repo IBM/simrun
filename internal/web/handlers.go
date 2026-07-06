@@ -489,6 +489,16 @@ func (h *Handlers) HandleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// default_tags feeds the per-pack merge, so it must be a string→string
+	// object or the merge would silently skip it.
+	if req.Key == "default_tags" {
+		var tags map[string]string
+		if err := json.Unmarshal(req.Value, &tags); err != nil || tags == nil {
+			writeError(w, http.StatusBadRequest, "default_tags must be an object with string values")
+			return
+		}
+	}
+
 	if err := h.configStore.Set(r.Context(), req.Key, req.Value); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

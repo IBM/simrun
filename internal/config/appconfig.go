@@ -15,6 +15,9 @@ type AppConfig struct {
 	RunLogRetentionDays    int    `json:"run_log_retention_days"`
 	RunRetentionEnabled    bool   `json:"run_retention_enabled"`
 	RunRetentionDays       int    `json:"run_retention_days"`
+	// DefaultTags are org-wide default tags merged beneath each pack's own
+	// default_tags parameter when pack configs are built from the DB.
+	DefaultTags map[string]string `json:"default_tags"`
 }
 
 // DefaultAppConfig returns the default values used when no row exists for
@@ -29,5 +32,6 @@ func DefaultAppConfig() AppConfig {
 		RunLogRetentionDays:    7,
 		RunRetentionEnabled:    false,
 		RunRetentionDays:       30,
+		DefaultTags:            map[string]string{},
 	}
 }
