@@ -23,4 +23,4 @@
 ## 4. Verification
 
 - [x] 4.1 `go test ./...` and `mise run lint` pass
-- [ ] 4.2 Manual flow: set org tags via `PUT /api/config`, open pack params dialog (inherited rows visible), remove/reinstall a pack, run a scenario, confirm `TF_VAR_default_tags` includes org tags
+- [x] 4.2 Manual flow: set org tags via `PUT /api/config`, open pack params dialog (inherited rows visible), remove/reinstall a pack, run a scenario, confirm `TF_VAR_default_tags` includes org tags

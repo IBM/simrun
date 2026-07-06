@@ -64,6 +64,17 @@ top of any `default = ...` declared on the matching Terraform
 the pack's `params_schema` (so previously-stored unknown keys continue
 to flow until cleaned up).
 
+For the `default_tags` key, org-wide default tags from app settings
+SHALL be merged per-key beneath the pack-level value when pack
+configurations are built from the database: an org tag applies unless
+the pack's own `default_tags` sets the same key, and packs cannot
+delete an org tag (no tombstones). The full precedence for a tag key is:
+Terraform `variable` default < org-wide default tag < pack-level
+`default_tags` entry < per-scenario `params`. An empty org map SHALL
+leave pack parameters unchanged, and a pack-level `default_tags` value
+that is not a string→string map SHALL pass through unmodified with no
+org merge applied.
+
 #### Scenario: Parameter as TF_VAR
 - **WHEN** the pack DB record has `parameters: {"region":"us-east-1"}`
 - **THEN** terraform inside the detonation runs with `TF_VAR_region=us-east-1`
@@ -86,6 +97,23 @@ to flow until cleaned up).
   the pack's `params_schema` (e.g., a legacy key)
 - **THEN** the key is still exported as a `TF_VAR_*` env var to the
   detonation's terraform process
+
+#### Scenario: Org default tag applies to pack without own value
+- **WHEN** org default tags are `{"owner": "secops"}` and the pack's
+  stored parameters have no `default_tags` key
+- **THEN** the detonation's terraform runs with
+  `TF_VAR_default_tags={"owner":"secops"}`
+
+#### Scenario: Pack-level tag overrides org tag per-key
+- **WHEN** org default tags are `{"owner": "secops", "env": "sim"}` and
+  the pack's `default_tags` are `{"owner": "red-team"}`
+- **THEN** the effective map is `{"owner": "red-team", "env": "sim"}`
+
+#### Scenario: Empty org map is a no-op
+- **WHEN** org default tags are `{}` and the pack's `default_tags` are
+  `{"team": "red"}`
+- **THEN** the effective map is `{"team": "red"}`, identical to behavior
+  before org-wide default tags existed
 
 ### Requirement: Conditional Terraform Lifecycle
 The system SHALL perform Terraform setup, apply, destroy only when the
