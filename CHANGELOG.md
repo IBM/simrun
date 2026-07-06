@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/IBM/simrun/compare/v0.4.2...v0.5.0) (2026-07-06)
+
+
+### Features
+
+* add KeyValueEditor component for managing key-value pairs in settings ([#29](https://github.com/IBM/simrun/issues/29)) ([b859070](https://github.com/IBM/simrun/commit/b85907057f6b8096c11bc7cad66c4f3691486ef7))
+* **packs:** remote packs and app level default_tags ([#27](https://github.com/IBM/simrun/issues/27)) ([5fc1708](https://github.com/IBM/simrun/commit/5fc17083ffefccdcb10ce5bd5b0085216e3b401b))
+
 ## [0.4.2](https://github.com/IBM/simrun/compare/v0.4.1...v0.4.2) (2026-06-25)
 
 
