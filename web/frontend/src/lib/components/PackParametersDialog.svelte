@@ -10,6 +10,7 @@
 		ValidationError
 	} from '$lib/api/client';
 	import SchemaForm from '$lib/components/SchemaForm.svelte';
+	import { hasBlankEntry } from '$lib/components/KeyValueEditor.svelte';
 	import type { AppConfig, PackManifest } from '$lib/types';
 
 	let {
@@ -86,11 +87,8 @@
 			if (prop?.type !== 'object' || prop.additionalProperties?.type !== 'string') continue;
 			const map = values[name];
 			if (!map || typeof map !== 'object') continue;
-			for (const [k, v] of Object.entries(map as Record<string, unknown>)) {
-				if (k.trim() === '' || typeof v !== 'string' || v.trim() === '') {
-					errs[name] = 'Keys and values cannot be empty — remove or fill blank entries.';
-					break;
-				}
+			if (hasBlankEntry(map as Record<string, unknown>)) {
+				errs[name] = 'Keys and values cannot be empty — remove or fill blank entries.';
 			}
 		}
 		return errs;

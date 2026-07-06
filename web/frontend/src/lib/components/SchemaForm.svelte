@@ -7,9 +7,9 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
+	import KeyValueEditor from '$lib/components/KeyValueEditor.svelte';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
 
@@ -92,28 +92,6 @@
 	function isRequired(name: string): boolean {
 		return required.includes(name);
 	}
-
-	// ----- String→string map editor state helpers ----------------------
-
-	type MapEntry = { key: string; value: string };
-
-	function objectToEntries(v: unknown): MapEntry[] {
-		if (!v || typeof v !== 'object') return [];
-		return Object.entries(v as Record<string, unknown>).map(([key, value]) => ({
-			key,
-			value: typeof value === 'string' ? value : JSON.stringify(value)
-		}));
-	}
-
-	function entriesToObject(entries: MapEntry[]): Record<string, string> {
-		const out: Record<string, string> = {};
-		for (const e of entries) {
-			const k = e.key.trim();
-			if (!k) continue;
-			out[k] = e.value;
-		}
-		return out;
-	}
 </script>
 
 {#snippet field(name: string, prop: Property)}
@@ -158,73 +136,11 @@
 				</Select.Content>
 			</Select.Root>
 		{:else if prop.type === 'object' && prop.additionalProperties?.type === 'string'}
-			{@const entries = objectToEntries(value)}
-			{@const inherited = name === 'default_tags' ? Object.entries(inheritedDefaultTags) : []}
-			<div class="space-y-2">
-				{#if inherited.length > 0}
-					{@const packKeys = new Set(entries.map((e) => e.key.trim()))}
-					<div class="space-y-1">
-						{#each inherited as [k, v] (k)}
-							{@const overridden = packKeys.has(k)}
-							<div
-								class="grid grid-cols-[1fr_1fr_auto] items-center gap-2 px-3 text-xs text-muted-foreground"
-							>
-								<span class="font-mono truncate {overridden ? 'line-through opacity-60' : ''}">
-									{k}
-								</span>
-								<span class="font-mono truncate {overridden ? 'line-through opacity-60' : ''}">
-									{v}
-								</span>
-								<span class="text-[10px]">{overridden ? 'overridden' : ''}</span>
-							</div>
-						{/each}
-						<p class="px-3 text-[10px] text-muted-foreground/70">Inherited from Settings</p>
-					</div>
-				{/if}
-				{#each entries as entry, i}
-					<div class="grid grid-cols-[1fr_1fr_auto] gap-2">
-						<Input
-							placeholder="key"
-							value={entry.key}
-							oninput={(e) => {
-								const next = entries.slice();
-								next[i] = { ...next[i], key: (e.target as HTMLInputElement).value };
-								update(name, entriesToObject(next));
-							}}
-						/>
-						<Input
-							placeholder="value"
-							value={entry.value}
-							oninput={(e) => {
-								const next = entries.slice();
-								next[i] = { ...next[i], value: (e.target as HTMLInputElement).value };
-								update(name, entriesToObject(next));
-							}}
-						/>
-						<Button
-							variant="outline"
-							size="sm"
-							class="h-9 w-8 p-0"
-							onclick={() => {
-								const next = entries.filter((_, idx) => idx !== i);
-								update(name, entriesToObject(next));
-							}}
-						>
-							<XIcon size={14} />
-						</Button>
-					</div>
-				{/each}
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => {
-						update(name, { ...entriesToObject(entries), '': '' });
-					}}
-				>
-					<PlusIcon data-icon="inline-start" />
-					Add Entry
-				</Button>
-			</div>
+			<KeyValueEditor
+				{value}
+				inherited={name === 'default_tags' ? inheritedDefaultTags : {}}
+				onchange={(next) => update(name, next)}
+			/>
 		{:else}
 			{@const stringValue = typeof value === 'string' ? value : value == null ? '' : String(value)}
 			<Input
