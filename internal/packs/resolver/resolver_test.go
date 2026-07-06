@@ -89,6 +89,19 @@ func newTestResolver(t *testing.T, apiBaseURL string) *Resolver {
 	return r
 }
 
+// TestResolve_EmptyVersionRejected verifies runtime resolution requires a
+// pinned version: a row with an empty version (e.g. legacy data) must fail
+// loudly rather than fetch "latest" into the pack's root cache dir, where it
+// would sit next to version subdirectories and be picked up by cache scans.
+func TestResolve_EmptyVersionRejected(t *testing.T) {
+	r := newTestResolver(t, "http://unused.invalid")
+
+	_, err := r.Resolve(context.Background(), PackConfig{Name: "mypack", Source: "github.com/org/repo"})
+	if err == nil || !strings.Contains(err.Error(), "version is required") {
+		t.Fatalf("err = %v, want version-required error", err)
+	}
+}
+
 // TestFetch_PinnedVersion resolves an explicit version tag, verifies the
 // checksum, and extracts the binary named after the asset prefix.
 func TestFetch_PinnedVersion(t *testing.T) {

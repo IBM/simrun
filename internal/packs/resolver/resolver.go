@@ -117,10 +117,16 @@ func (r *Resolver) Resolve(ctx context.Context, cfg PackConfig) (string, error) 
 	return res.BinaryPath, nil
 }
 
-// validatePackConfig validates the pack configuration.
+// validatePackConfig validates the pack configuration. Version must be a
+// concrete pinned version: cache paths are <cacheDir>/<name>/<version>/, so an
+// empty version would read/write the pack's root cache dir. Install pins the
+// resolved tag, so this only rejects malformed (e.g. legacy) rows.
 func (r *Resolver) validatePackConfig(cfg PackConfig) error {
 	if cfg.Source == "" {
 		return fmt.Errorf("pack %s: source is required", cfg.Name)
+	}
+	if cfg.Version == "" {
+		return fmt.Errorf("pack %s: version is required for remote packs", cfg.Name)
 	}
 	return nil
 }
