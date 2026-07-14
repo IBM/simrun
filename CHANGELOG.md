@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/IBM/simrun/compare/v0.6.0...v0.6.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* update Go base image to version 1.25.12 ([#32](https://github.com/IBM/simrun/issues/32)) ([23d4347](https://github.com/IBM/simrun/commit/23d43478baf05bc18d22aa4b05360b1b8dcedfc0))
+
 ## [0.6.0](https://github.com/IBM/simrun/compare/v0.5.0...v0.6.0) (2026-07-14)
 
 
