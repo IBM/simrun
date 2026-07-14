@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/IBM/simrun/compare/v0.5.0...v0.6.0) (2026-07-14)
+
+
+### Features
+
+* **deps:** patch vulns ([#30](https://github.com/IBM/simrun/issues/30)) ([87261d6](https://github.com/IBM/simrun/commit/87261d66417ebeb4116381fd4da00601f57ef26e))
+
 ## [0.5.0](https://github.com/IBM/simrun/compare/v0.4.2...v0.5.0) (2026-07-06)
 
 
