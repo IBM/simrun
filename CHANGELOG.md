@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/IBM/simrun/compare/v0.6.1...v0.6.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* grpc dep ([#67](https://github.com/IBM/simrun/issues/67)) ([69a40fe](https://github.com/IBM/simrun/commit/69a40fe0e70d7266f98e360c3b6f98845adc845f))
+
 ## [0.6.1](https://github.com/IBM/simrun/compare/v0.6.0...v0.6.1) (2026-07-14)
 
 
