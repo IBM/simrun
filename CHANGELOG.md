@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/IBM/simrun/compare/v0.6.2...v0.6.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* **deps:** update dependency golangci-lint to v2.14.0 ([#63](https://github.com/IBM/simrun/issues/63)) ([c5c9ad3](https://github.com/IBM/simrun/commit/c5c9ad35b476d36689cb84fb440f06086523a076))
+
 ## [0.6.2](https://github.com/IBM/simrun/compare/v0.6.1...v0.6.2) (2026-09-11)
 
 
