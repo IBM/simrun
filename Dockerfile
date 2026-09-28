@@ -31,7 +31,7 @@ RUN git config --global --add safe.directory /build && \
     -o /simrun-server cmd/simrun/main.go
 
 # --- Runtime stage ---
-FROM alpine:3.21
+FROM alpine:3.24
 
 RUN apk add --no-cache \
     ca-certificates \
