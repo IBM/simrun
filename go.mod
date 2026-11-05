@@ -14,7 +14,7 @@ require (
 	github.com/aws/smithy-go v1.25.1
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/elastic/go-elasticsearch/v9 v9.4.1
-	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
